@@ -1,0 +1,74 @@
+*{ 
+    font-size: 12pt; 
+    Font-family: Giga Sans;
+    color: #E0E0E0;
+} 
+
+/* NoFrame = 0, Box = 0x0001, Panel = 0x0002, WinPanel = 0x0003, StyledPanel = 0x0006, 
+   PopupPanel = 0x0007, MenuBarPanel = 0x0008, ToolBarPanel = 0x0009, 
+   LineEditPanel = 0x000a, TabWidgetPanel = 0x000b, GroupBoxPanel = 0x000c, MShape = 0x000f */
+QFrame[frameShape="6"] {
+    background-color: rgba(255, 255, 255, 16);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 32);
+}
+
+QTabWidget::pane {
+    background: transparent;
+    border: 0px solid #404040;
+}
+
+QTabBar::tab {
+    background: transparent;
+}
+
+QTabBar::tab::selected {
+    color: #60A5FA; /* Более яркий синий для темной темы */
+}
+
+QWidget > QLabel { color: #E0E0E0; }
+
+QWidget > QWidget { background-color: #1A1A1A; }
+
+QScrollArea { 
+    background: transparent; 
+}
+
+QScrollArea > QWidget > QWidget { 
+    background: transparent; 
+}
+
+QScrollArea > QWidget > QScrollBar { 
+    background: #2D2D2D;
+}
+
+QTableWidget {
+    background-color: rgba(255, 255, 255, 8);
+    border-radius: 6px;
+    gridline-color: 1px solid rgba(255, 255, 255, 32);
+    border: 1px solid rgba(255, 255, 255, 16);
+} 
+
+QTableView {
+    font-size: 12pt;
+    Font-family: Consolas;
+    color: #E0E0E0;
+}
+
+QMenuBar {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-bottom: 0px solid #404040;
+    background-color: #1A1A1A;
+}
+
+/* Кастомный стиль для элементов со специфическим названием (работает с модулями) */
+#labelSettingsSubText {
+    font-size: 9pt;
+    Font-family: Giga Sans;
+    color: #B0B0B0;
+}
+
+#scrollAreaWidgetContents {
+    background-color: rgba(255, 255, 255, 8);
+}

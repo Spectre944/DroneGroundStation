@@ -1,0 +1,126 @@
+* {
+    font-size: 12pt;
+    font-family: Giga Sans;
+    color: #ffffff; /* Белый текст для темной темы */
+}
+
+/* Основной фон приложения */
+QWidget {
+    background-color: #2d2d2d; /* Темный фон */
+}
+
+/* Стиль для QFrame с frameShape="6" */
+QFrame[frameShape="6"] {
+    background-color: rgba(255, 255, 255, 0.1); /* Светлый фон с прозрачностью */
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Светлая граница */
+}
+
+/* Стиль для QTabWidget */
+QTabWidget::pane {
+    background: transparent;
+    border: 0px solid gray;
+}
+
+QTabBar::tab {
+    background: transparent;
+    color: #ffffff; /* Белый текст для вкладок */
+}
+
+QTabBar::tab:selected {
+    color: #0078d7; /* Синий цвет для выбранной вкладки */
+}
+
+/* Стиль для QScrollArea */
+QScrollArea {
+    background: transparent;
+}
+
+QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+
+QScrollArea > QWidget > QScrollBar {
+    background: #3d3d3d; /* Темный фон для скроллбара */
+}
+
+/* Стиль для QTableWidget */
+QTableWidget {
+    background-color: rgba(255, 255, 255, 0.1); /* Светлый фон с прозрачностью */
+    border-radius: 6px;
+    gridline-color: rgba(255, 255, 255, 0.2); /* Светлые линии сетки */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Светлая граница */
+}
+
+QTableView {
+    font-size: 12pt;
+    font-family: Consolas;
+    color: #ffffff; /* Белый текст для таблицы */
+}
+
+/* Стиль для QMenuBar */
+QMenuBar {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-bottom: 0px solid grey;
+    background-color: #3d3d3d; /* Темный фон для меню */
+    color: #ffffff; /* Белый текст для меню */
+}
+
+/* Кастомный стиль для элементов со специфическим названием */
+#labelSettingsSubText {
+    font-size: 9pt;
+    font-family: Giga Sans;
+    color: #ffffff; /* Белый текст для подписей */
+}
+
+#scrollAreaWidgetContents {
+    background-color: rgba(255, 255, 255, 0.05); /* Светлый фон с прозрачностью */
+}
+
+/* Дополнительные стили для кнопок и других элементов */
+QPushButton {
+    background-color: #3d3d3d; /* Темный фон для кнопок */
+    color: #ffffff; /* Белый текст для кнопок */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Светлая граница */
+    border-radius: 5px;
+    padding: 5px;
+}
+
+QPushButton:hover {
+    background-color: #4d4d4d; /* Светлее фон при наведении */
+}
+
+QPushButton:pressed {
+    background-color: #2d2d2d; /* Темнее фон при нажатии */
+}
+
+/* Стиль для QLineEdit */
+QLineEdit {
+    background-color: rgba(255, 255, 255, 0.1); /* Светлый фон с прозрачностью */
+    color: #ffffff; /* Белый текст */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Светлая граница */
+    border-radius: 5px;
+    padding: 5px;
+}
+
+/* Стиль для QComboBox */
+QComboBox {
+    background-color: rgba(255, 255, 255, 0.1); /* Светлый фон с прозрачностью */
+    color: #ffffff; /* Белый текст */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Светлая граница */
+    border-radius: 5px;
+    padding: 5px;
+}
+
+QComboBox::drop-down {
+    background-color: transparent;
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #3d3d3d; /* Темный фон для выпадающего списка */
+    color: #ffffff; /* Белый текст */
+    selection-background-color: #0078d7; /* Синий фон для выбранного элемента */
+    selection-color: #ffffff; /* Белый текст для выбранного элемента */
+}
