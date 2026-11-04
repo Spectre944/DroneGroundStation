@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(DroneGroundStation LANGUAGES CXX C)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg)
 
 qt_standard_project_setup()
 
@@ -16,6 +16,12 @@ qt_add_executable(DroneGroundStation
     map/mapcore.cpp map/mapcore.h map/mapwidget.cpp map/mapwidget.h
     map/drawinglayer.cpp map/drawinglayer.h map/maplayer.h
     backend/settings/settings.h backend/settings/settings.cpp
+    ui/windows/overlay/overlaylayer.cpp ui/windows/overlay/overlaylayer.h ui/windows/overlay/overlaywidget.cpp ui/windows/overlay/overlaywidget.h
+    ui/windows/overlay/overlaycontainer.h ui/windows/overlay/overlaycontainer.cpp
+    ui/modules/leftMenu/leftmenu.cpp ui/modules/leftMenu/leftmenu.h
+    backend/utilities/utilities.cpp backend/utilities/utilities.h
+    ui/components/styleconstants.h
+    ui/modules/coordinatesPanel/coordinatespanel.h ui/modules/coordinatesPanel/coordinatespanel.cpp ui/modules/coordinatesPanel/coordinatespanel.ui
 )
 
 target_include_directories(DroneGroundStation
@@ -31,6 +37,7 @@ target_link_libraries(DroneGroundStation
     PRIVATE
         Qt::Core
         Qt::Widgets
+        Qt6::Svg
 )
 
 # add_library(sqlite3 STATIC db/sqlite3.c)

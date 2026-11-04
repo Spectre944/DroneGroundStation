@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     splash.show();
     //splash.showMessage("Loaded modules", Qt::AlignRight, Qt::white);
 
-    a.setWindowIcon(QIcon(":/icons/png/old/atom-2.png"));
+    // a.setWindowIcon(QIcon(":/icons/png/old/atom-2.png"));
     // fusion   windowsvista    macOS   windows
     // a.setStyle("fusion");   // For win10 - fusion, for win11 - windows
 
