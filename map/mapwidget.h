@@ -375,7 +375,7 @@ public:
     bool mouseMove(QMouseEvent *e) override;
     bool mouseRelease(QMouseEvent *e) override;
     bool keyPress(QKeyEvent *e) override;
-    void buildContextMenu(const QPoint &pos, QMenu &menu);
+    void buildContextMenu(const QPoint &pos, QMenu &menu) override;
 
     int  selectedId() const { return m_selectedId; }
     void select(int id);

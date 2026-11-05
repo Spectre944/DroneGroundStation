@@ -42,6 +42,7 @@ public:
     virtual bool mouseMove(QMouseEvent *)    { return false; }
     virtual bool mouseRelease(QMouseEvent *) { return false; }
     virtual bool keyPress(QKeyEvent *)       { return false; }
+    virtual void buildContextMenu(const QPoint &pos, QMenu &menu) { Q_UNUSED(pos) Q_UNUSED(menu) }
 
 signals:
     void updateRequested();   // попросить виджет перерисоваться
