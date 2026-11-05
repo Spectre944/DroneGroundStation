@@ -22,6 +22,9 @@ qt_add_executable(DroneGroundStation
     backend/utilities/utilities.cpp backend/utilities/utilities.h
     ui/components/styleconstants.h
     ui/modules/coordinatesPanel/coordinatespanel.h ui/modules/coordinatesPanel/coordinatespanel.cpp ui/modules/coordinatesPanel/coordinatespanel.ui
+    backend/coords/coordhandler.cpp backend/coords/coordhandler.h backend/coords/mgrs.cpp backend/coords/mgrs.h backend/coords/polarst.cpp backend/coords/polarst.h backend/coords/tranmerc.cpp backend/coords/tranmerc.h backend/coords/ups.cpp backend/coords/ups.h backend/coords/utm.cpp backend/coords/utm.h
+    ui/modules/notifier/notifier.cpp ui/modules/notifier/notifier.h
+    ui/components/custom/custom.cpp ui/components/custom/custom.h
 )
 
 target_include_directories(DroneGroundStation
