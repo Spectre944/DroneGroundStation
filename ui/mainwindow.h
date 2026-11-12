@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QStackedLayout>
+#include <QStackedWidget>
+#include <QSplitter>
 
 #include "map/mapwidget.h"
 #include <backend/settings/settings.h>
@@ -37,8 +39,9 @@ private:
     OverlayContainer * coordOverlay = nullptr;
     CoordinatesPanel *coordinatesPanel = nullptr;
 
-    // QWidget interface
-protected:
-    void resizeEvent(QResizeEvent *event);
+    QStackedWidget *stackedWidget = nullptr;
+    OverlayContainer *pageOverlay = nullptr;
+    QSplitter *mainSplitter = nullptr;
+
 };
 #endif // MAINWINDOW_H

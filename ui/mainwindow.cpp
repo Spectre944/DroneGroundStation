@@ -12,7 +12,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_draw.setwindow(mapWidget);
 
     mapWidget->setMapFile(QString("D://Tiles//tiles_ukr_9-16.db"));
-
     ui->horizontalLayout->addWidget(mapWidget);
 
     // --- Левое меню: прижато слева, на всю высоту с отступами 10 ---
@@ -35,22 +34,22 @@ MainWindow::MainWindow(QWidget *parent)
     coordOverlay->show();
 
     // // --- Страницы: по центру, 60% x 70% карты, не больше 1000x800, модально ---
-    // pagesStack  = new QStackedWidget();
-    // pagesStack->addWidget(devicePage);     // 0
-    // pagesStack->addWidget(databasePage);   // 1
-    // pagesStack->addWidget(cbrnPage);       // 2
-    // pagesStack->addWidget(reconPage);      // 3
-    // pagesStack->addWidget(settingsPage);   // 4
+    stackedWidget = new QStackedWidget();
+    // stackedWidget->addWidget(devicePage);     // 0
+    // stackedWidget->addWidget(databasePage);   // 1
+    // stackedWidget->addWidget(cbrnPage);       // 2
+    // stackedWidget->addWidget(reconPage);      // 3
+    // stackedWidget->addWidget(settingsPage);   // 4
 
-    // pageOverlay = new OverlayContainer(mapWidget);
-    // pageOverlay->setContentWidget(pagesStack);
-    // pageOverlay->setAnchor(Qt::AlignCenter);
-    // pageOverlay->setRelativeSize(0.6, 0.7);
-    // pageOverlay->setMaximumSize(1000, 800);
-    // pageOverlay->setOuterMargins({90, 20, 20, 20});
-    // pageOverlay->setBorderRadius(16);
+    pageOverlay = new OverlayContainer(mapWidget);
+    pageOverlay->setContentWidget(stackedWidget);
+    pageOverlay->setAnchor(Qt::AlignLeft);
+    pageOverlay->setRelativeSize(0.6, 0.7);
+    pageOverlay->setMaximumSize(600, 600);
+    pageOverlay->setOuterMargins({90, 20, 20, 20});
+    pageOverlay->setBorderRadius(16);
     // pageOverlay->setModal(true);
-    // pageOverlay->hide();
+    pageOverlay->show();
 
     // connect(leftMenu, &LeftMenu::changePage, this, [=](int index) {
     //     static const QStringList titles = {"Прилади", "База даних", "Донесення", "Розвідка", "Налаштування"};
@@ -58,14 +57,18 @@ MainWindow::MainWindow(QWidget *parent)
     //     pageOverlay->setTitle(titles.value(index));
     //     pageOverlay->showOverlay();
     // });
+
+    // mainSplitter = new QSplitter(Qt::Horizontal);
+    // mainSplitter->addWidget(stackedWidget);
+    // mainSplitter->addWidget(mapWidget);
+    // mainSplitter->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    // mainSplitter->setSizes(QList<int> () << 1000 << 800);
+    // ui->horizontalLayout->addWidget(mainSplitter);
+
+
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-}
-
-void MainWindow::resizeEvent(QResizeEvent *event)
-{
-
 }

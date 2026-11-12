@@ -13,24 +13,10 @@
 
 #include <backend/utilities/utilities.h>
 #include <ui/components/styleconstants.h>
+#include <ui/components/button/button.h>
 
-class LeftMenuButton : public QPushButton
-{
-    Q_OBJECT
-public:
-    explicit LeftMenuButton(QWidget *parent = nullptr);
 
-    void updateIndicator(bool checked);
-    void addSubPageMenu(const QList<QAction*> );
 
-signals:
-private:
-    QFrame  *checkedFrame;
-};
-
-//--------------------------------------------------------------------//
-//                                                                    //
-//--------------------------------------------------------------------//
 
 class LeftMenu : public QWidget
 {

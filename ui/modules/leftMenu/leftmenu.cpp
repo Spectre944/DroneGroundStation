@@ -1,52 +1,5 @@
 #include "leftmenu.h"
 
-LeftMenuButton::LeftMenuButton(QWidget *parent)
-{
-    Q_UNUSED(parent);
-    QSizePolicy policy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Preferred);
-
-    setSizePolicy(policy);
-    setIcon(QIcon(":/icons/svg/bs5/geo.svg"));
-    setIconSize(QSize(StyleConstants::leftMenuIconSize,StyleConstants::leftMenuIconSize));
-    setText("");
-    setFlat(true);
-    setToolTip("Home");
-    setMinimumWidth(StyleConstants::leftMenuMinimumBtnHeight);
-    setMinimumHeight(StyleConstants::leftMenuMinimumBtnWidth);
-    setCheckable(true);
-    setFocusPolicy(Qt::TabFocus);
-
-    // Создаем и настраиваем индикаторный фрейм
-    checkedFrame = new QFrame(this);
-    checkedFrame->setFixedWidth(5);
-    checkedFrame->setStyleSheet("background-color: #0078d7; border-radius: 2px;");
-    checkedFrame->hide();
-
-    // Располагаем индикаторный фрейм справа
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(5, 5, 5, 5);
-    layout->addWidget(checkedFrame, 0, Qt::AlignLeft);
-    setLayout(layout);
-
-    // Связываем изменение состояния кнопки с отображением индикатора
-    connect(this, &QPushButton::toggled, this, &LeftMenuButton::updateIndicator);
-
-}
-
-void LeftMenuButton::updateIndicator(bool checked)
-{
-    checkedFrame->setVisible(checked);
-}
-
-void LeftMenuButton::addSubPageMenu(const QList<QAction*> actions)
-{
-
-}
-
-//--------------------------------------------------------------------//
-//                                                                    //
-//--------------------------------------------------------------------//
-
 LeftMenu::LeftMenu(QWidget *parent)
     : QWidget{parent}
 {
