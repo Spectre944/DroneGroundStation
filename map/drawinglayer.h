@@ -25,13 +25,11 @@ public:
     void finish();            // завершить (если точек достаточно - сохранить)
     void cancel();            // отменить текущую фигуру
     void undoLastPoint();
-    void clear();             // удалить все готовые фигуры
+    void clear();             // сбросить недорисованную фигуру (готовые хранятся в GeometryStore)
 
     bool isActive() const { return m_mode != Mode::None; }
     Mode mode() const { return m_mode; }
 
-    const QVector<QVector<smappoint>> &polygons() const { return m_polygons; }
-    const QVector<QVector<smappoint>> &lines() const { return m_lines; }
 
     // MapLayer
     void draw(QPainter &p) override;
@@ -49,8 +47,6 @@ private:
 
     Mode m_mode = Mode::None;
     QVector<smappoint> m_current;
-    QVector<QVector<smappoint>> m_polygons;
-    QVector<QVector<smappoint>> m_lines;
 
     QPoint m_mousePos;
     bool m_hasMouse = false;

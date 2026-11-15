@@ -8,6 +8,7 @@
 #include "map/mappicker.h"
 #include "ui/pages/recon/reconpage.h"
 #include "ui/pages/database/databasepage.h"
+#include "ui/pages/instruments/instrumentspage.h"
 #include "ui/pages/settings/settingspage.h"
 
 namespace {
@@ -58,10 +59,12 @@ void MainWindow::setupPages()
 {
     reconPage    = new ReconPage();
     databasePage = new DatabasePage();
+    instrumentsPage = new InstrumentsPage();
     settingsPage = new SettingsPage();
 
     reconPanel    = addSidePanel("Розвідка",     reconPage);
     databasePanel = addSidePanel("База даних",   databasePage);
+    instrumentsPanel = addSidePanel("Прилади",   instrumentsPage);
     settingsPanel = addSidePanel("Налаштування", settingsPage);
 
     // --- связи страниц с картой ---

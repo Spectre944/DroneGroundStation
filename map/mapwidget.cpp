@@ -1,6 +1,12 @@
 #include "mapwidget.h"
 #include "ui_mapwidget.h"
 
+#include <QComboBox>
+
+namespace {
+const char KEY_COORD_TYPE[] = "interface/mapCoordType";   // формат координат в панели над картой
+}
+
 #include <QApplication>
 #include <QClipboard>
 #include <QContextMenuEvent>
@@ -239,8 +245,11 @@ bool GeometryLayer::mouseMove(QMouseEvent *e)
 
     if (pt >= 0) {
         tip.title = QString("Точка #%1").arg(pt + 1);
-        tip.lines << QString("Широта: %1").arg(it->points[pt].latt, 0, 'f', 6)
-                  << QString("Довгота: %1").arg(it->points[pt].longt, 0, 'f', 6);
+        if (m_coordType == CoordType::WGS84_String)
+            tip.lines << QString("Широта: %1").arg(it->points[pt].latt, 0, 'f', 6)
+                      << QString("Довгота: %1").arg(it->points[pt].longt, 0, 'f', 6);
+        else
+            tip.lines << formatMapPoint(it->points[pt], m_coordType);
         tip.valid = true;
     } else {
         const int segs = poly ? n : n - 1;
@@ -344,6 +353,13 @@ void GeometryLayer::copyCoordinates(int id) const
     for (const smappoint &pt : it->points)
         text += QString("WGS84:%1,%2/").arg(pt.latt, 0, 'f', 6).arg(pt.longt, 0, 'f', 6);
     text += "/";
+
+    // В формат, выбранный в панели над картой
+    if (m_coordType != CoordType::WGS84_String) {
+        const QPair<bool, QString> conv = CoordHandler::convertPackageCoords(text, m_coordType);
+        if (conv.first)
+            text = conv.second;
+    }
 
     QApplication::clipboard()->setText(text, QClipboard::Clipboard);
     NotificationManager::showInfo("Координати збережено в буфер");
@@ -777,14 +793,51 @@ void MapWidget::adjustZoom(int delta)
     setZoom(m_core.getzoom() + (delta > 0 ? 1 : -1));
 }
 
+QString formatMapPoint(const smappoint &pt, CoordType type)
+{
+    const QString wgs = QString("WGS84:%1,%2").arg(pt.latt, 0, 'f', 6).arg(pt.longt, 0, 'f', 6);
+    if (type == CoordType::WGS84_String)
+        return wgs;
+    const QPair<bool, QString> conv = CoordHandler::convertSingleCoord(wgs, type);
+    return conv.first ? conv.second : wgs;
+}
+
 void MapWidget::syncCenter()
 {
     centerPosition = m_core.getview();
     if (ui)
-        ui->currentCoordLineEdit->setText(QString("%1, %2")
-                                          .arg(centerPosition.latt, 0, 'f', 6)
-                                          .arg(centerPosition.longt, 0, 'f', 6));
+        ui->currentCoordLineEdit->setText(formatMapPoint(centerPosition, coordType));
     emit centerPositionChanged(centerPosition);
+}
+
+void MapWidget::setupCoordTypeBox()
+{
+    QComboBox *box = ui->coordTypeComboBox;
+    box->addItem("WGS84", QVariant::fromValue(CoordType::WGS84_String));
+    box->addItem("MGRS",  QVariant::fromValue(CoordType::MGRS));
+    box->addItem("UTM",   QVariant::fromValue(CoordType::UTM));
+    box->addItem("DMS",   QVariant::fromValue(CoordType::DMS));
+    box->addItem("СК-42", QVariant::fromValue(CoordType::CK42));
+
+    // Последний выбранный формат
+    const int saved = Settings::instance().getValue(KEY_COORD_TYPE).toInt();
+    const int idx = box->findData(QVariant::fromValue(static_cast<CoordType>(saved)));
+    box->setCurrentIndex(idx >= 0 ? idx : 0);
+    setCoordType(box->currentData().value<CoordType>());
+
+    connect(box, &QComboBox::currentIndexChanged, this, [this, box](int) {
+        setCoordType(box->currentData().value<CoordType>());
+        Settings::instance().setValue(KEY_COORD_TYPE, static_cast<int>(coordType));
+        Settings::instance().saveSettings();
+    });
+}
+
+void MapWidget::setCoordType(CoordType type)
+{
+    coordType = type;
+    if (geometryLayer)
+        geometryLayer->setCoordType(type);
+    syncCenter();
 }
 
 void MapWidget::copyCenterCoordinates()
@@ -1135,6 +1188,31 @@ void MapWidget::setupButtons()
 
     connect(ui->currentCoordLineEdit, &LineEditDisplayCoordinates::doubleClicked,
             this, &MapWidget::copyCenterCoordinates);
+    setupCoordTypeBox();
+
+    // На Windows 11 стиль рисует QPushButton полупрозрачными - поверх карты их
+    // почти не видно. Задаём непрозрачный фон только кнопкам/панели карты
+    // (селектор ">" - прямые дети MapWidget, страницы-оверлеи не затрагиваются).
+    setStyleSheet(R"(
+        MapWidget > QPushButton {
+            background-color: rgb(250, 250, 250);
+            border: 1px solid rgb(170, 170, 170);
+            border-radius: 4px;
+            min-width: 35px; min-height: 35px;
+        }
+        MapWidget > QPushButton:hover    { background-color: rgb(229, 241, 251); border-color: rgb(0, 120, 215); }
+        MapWidget > QPushButton:pressed  { background-color: rgb(204, 228, 247); }
+        MapWidget > QPushButton:checked  { background-color: rgb(204, 228, 247); border-color: rgb(0, 120, 215); }
+        MapWidget > QPushButton::menu-indicator {
+            subcontrol-origin: padding; subcontrol-position: right bottom;
+            position: relative; right: 2px; bottom: 2px; width: 7px; height: 7px;
+        }
+        #coordFrame {
+            background-color: rgb(250, 250, 250);
+            border: 1px solid rgb(170, 170, 170);
+            border-radius: 4px;
+        }
+    )");
 
     onDrawingModeChanged(DrawingLayer::Mode::None);
 }
@@ -1176,10 +1254,9 @@ void MapWidget::setupFilterMenu()
 
     addFilter("Активні загрози",   true, [this](bool on) { threatLayer->setVisible(on); });
     addFilter("Архівні дані",      true, [this](bool on) { archiveLayer->setVisible(on); });
-    addFilter("Маркер машини",     true, [this](bool on) { vehicleLayer->setVehicleVisible(on); });
-    addFilter("Шлях машини",       true, [this](bool on) { vehicleLayer->setPathVisible(on); });
+    addFilter("Маркер дрона",      true, [this](bool on) { vehicleLayer->setVehicleVisible(on); });
+    addFilter("Шлях дрона",        true, [this](bool on) { vehicleLayer->setPathVisible(on); });
     addFilter("Область пошуку",    true, [this](bool on) { searchLayer->setVisible(on); });
-    addFilter("Фігури користувача", true, [this](bool on) { geometryLayer->setVisible(on); });
 }
 
 void MapWidget::addFilter(const QString &text, bool checked, std::function<void(bool)> setter)

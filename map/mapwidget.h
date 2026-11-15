@@ -366,6 +366,10 @@ private:
 
 
 
+// Перевод точки карты в строку выбранного формата (WGS84 / MGRS / UTM / DMS / СК-42).
+// При ошибке конвертации возвращает WGS84.
+QString formatMapPoint(const smappoint &pt, CoordType type);
+
 class GeometryLayer : public MapLayer
 {
     Q_OBJECT
@@ -381,6 +385,9 @@ public:
     int  selectedId() const { return m_selectedId; }
     void select(int id);
     void clearSelection() { select(-1); }
+
+    // Формат координат для подсказок и "Скопіювати координати" (выбирается в панели над картой)
+    void setCoordType(CoordType type) { m_coordType = type; }
 
 signals:
     void selectionChanged(int id);
@@ -404,6 +411,7 @@ private:
     void drawInfo(QPainter &p);
 
     GeometryStore *m_store;
+    CoordType m_coordType = CoordType::WGS84_String;
 
     int m_selectedId = -1;
     int m_hoverPoint = -1;
@@ -671,6 +679,8 @@ private:
     void setupConnections();
     void setupButtons();          // кнопки из mapwidget.ui (раскладка как в прошлом проекте)
     void copyCenterCoordinates();
+    void setupCoordTypeBox();
+    void setCoordType(CoordType type);
     void setupFilterMenu();
     void addFilter(const QString &text, bool checked, std::function<void(bool)> setter);
 
@@ -704,6 +714,7 @@ private:
 
     Ui::MapWidget *ui = nullptr;
     int defaultLeftMargin = 0;
+    CoordType coordType = CoordType::WGS84_String;
 
     // --- кнопки рисования (указатели на виджеты из ui) ---
     QPushButton *btnLine = nullptr, *btnPolygon = nullptr, *btnFinish = nullptr,

@@ -21,14 +21,13 @@ void DrawingLayer::cancel()       { setMode(Mode::None); }
 
 void DrawingLayer::finish()
 {
-    if (m_mode == Mode::Polygon && m_current.size() >= 3) {
-        m_polygons.append(m_current);
+    // Готовую фигуру забирает GeometryStore (через polygonFinished/lineFinished),
+    // её рисует GeometryLayer. Здесь копию не храним: иначе после удаления
+    // из контекстного меню фигура оставалась нарисованной этим слоем.
+    if (m_mode == Mode::Polygon && m_current.size() >= 3)
         emit polygonFinished(m_current);
-    }
-    else if (m_mode == Mode::Line && m_current.size() >= 2) {
-        m_lines.append(m_current);
+    else if (m_mode == Mode::Line && m_current.size() >= 2)
         emit lineFinished(m_current);
-    }
     setMode(Mode::None);
 }
 
@@ -42,9 +41,7 @@ void DrawingLayer::undoLastPoint()
 
 void DrawingLayer::clear()
 {
-    m_polygons.clear();
-    m_lines.clear();
-    emit updateRequested();
+    setMode(Mode::None);   // только недорисованная фигура - готовые живут в GeometryStore
 }
 
 // ------------------------ СОБЫТИЯ ------------------------ //
@@ -119,24 +116,6 @@ void DrawingLayer::draw(QPainter &p)
 {
     p.save();
     p.setRenderHint(QPainter::Antialiasing, true);
-
-    // Готовые линии
-    p.setPen(QPen(QColor(0, 120, 255), 3));
-    p.setBrush(Qt::NoBrush);
-    for (const auto &line : m_lines) {
-        QPolygon poly;
-        for (const auto &pt : line) poly << toScreen(pt);
-        p.drawPolyline(poly);
-    }
-
-    // Готовые полигоны
-    p.setPen(QPen(QColor(0, 160, 60), 2));
-    p.setBrush(QColor(0, 160, 60, 60));
-    for (const auto &polygon : m_polygons) {
-        QPolygon poly;
-        for (const auto &pt : polygon) poly << toScreen(pt);
-        p.drawPolygon(poly);
-    }
 
     drawCurrent(p);
     p.restore();

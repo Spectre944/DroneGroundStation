@@ -13,6 +13,7 @@ class QAction;
 class MapPicker;
 class ReconPage;
 class DatabasePage;
+class InstrumentsPage;
 class SettingsPage;
 
 QT_BEGIN_NAMESPACE
@@ -58,11 +59,13 @@ private:
 
     ReconPage    *reconPage    = nullptr;
     DatabasePage *databasePage = nullptr;
+    InstrumentsPage *instrumentsPage = nullptr;
     SettingsPage *settingsPage = nullptr;
 
     QList<SidePanel *> panels;
     SidePanel *reconPanel    = nullptr;
     SidePanel *databasePanel = nullptr;
+    SidePanel *instrumentsPanel = nullptr;
     SidePanel *settingsPanel = nullptr;
 };
 #endif // MAINWINDOW_H

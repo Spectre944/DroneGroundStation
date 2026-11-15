@@ -75,9 +75,9 @@ private:
     QAction *radType, *bioType, *chemType;
     QAction *allTime, *lastHour, *lastDay, *lastWeek, *lastMonth, *lastYear, *lastOptional;
     QAction *areaAll, *area1km, *area10km, *area50km, *area100km, *area500km, *areaOptional;
-    QAction *pointFlag, *flagFlag, *routeFlag, *objectFlag, *sampleFlag, *calcZoneFlag, *factZoneFlag;
+    QAction *pointFlag = nullptr;
     QAction *layerOverlaping, *displayOnMap, *displayInNewTable;
-    QAction *sortByTimeNewFirst, *sortByTimeOldFirst, *sortByDistance, *sortByConcetration, *sortByRadiation;
+    QAction *sortByTimeNewFirst, *sortByTimeOldFirst, *sortByDistance, *sortByRadiation;
 };
 
 #endif // SEARCHBAR_H
