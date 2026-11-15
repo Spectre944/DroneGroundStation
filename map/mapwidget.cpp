@@ -1,4 +1,5 @@
 #include "mapwidget.h"
+#include "ui_mapwidget.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -722,14 +723,15 @@ MapWidget::MapWidget(QWidget *parent)
     centerPosition = m_core.getview();
 
     setupLayers();
-    setupToolbar();        // слева сверху: рисование
-    setupControls();       // справа сверху: zoom / автотрекинг / список фигур / фильтр
+    setupButtons();        // слева: рисование, справа: слои / zoom / автотрекинг, сверху: координаты
     setupFilterMenu();
     setupConnections();
+    syncCenter();          // заполнить поле координат
 }
 
 MapWidget::~MapWidget()
 {
+    delete ui;
     delete p_map;
 }
 
@@ -778,7 +780,17 @@ void MapWidget::adjustZoom(int delta)
 void MapWidget::syncCenter()
 {
     centerPosition = m_core.getview();
+    if (ui)
+        ui->currentCoordLineEdit->setText(QString("%1, %2")
+                                          .arg(centerPosition.latt, 0, 'f', 6)
+                                          .arg(centerPosition.longt, 0, 'f', 6));
     emit centerPositionChanged(centerPosition);
+}
+
+void MapWidget::copyCenterCoordinates()
+{
+    QApplication::clipboard()->setText(ui->currentCoordLineEdit->text());
+    NotificationManager::showInfo("Координати скопійовано");
 }
 
 void MapWidget::centerOnPoint(const smarker &marker)
@@ -796,9 +808,11 @@ bool MapWidget::isDrawing() const     { return drawing && drawing->isActive(); }
 
 void MapWidget::setLeftInset(int px)
 {
-    leftInset = qMax(0, px);
-    if (toolbar)
-        toolbar->move(leftInset + 10, 10);
+    // Сдвигаем всю сетку кнопок: левая колонка уходит из-под страницы,
+    // поле координат центрируется в оставшейся части карты
+    QMargins m = ui->verticalLayout->contentsMargins();
+    m.setLeft(qMax(0, px) + defaultLeftMargin);
+    ui->verticalLayout->setContentsMargins(m);
 }
 
 // ------------------------ СЛОИ ------------------------ //
@@ -1048,9 +1062,6 @@ void MapWidget::resizeEvent(QResizeEvent *event)
     QWidget::resizeEvent(event);
     m_core.setcreensize(event->size().width(), event->size().height());
 
-    if (controls)
-        controls->move(width() - controls->width() - 10, 10);
-
     update();
 }
 
@@ -1066,32 +1077,30 @@ void MapWidget::updateCursor()
 
 // ------------------- ПАНЕЛЬ РИСОВАНИЯ ------------------- //
 
-void MapWidget::setupToolbar()
+void MapWidget::setupButtons()
 {
-    toolbar = new QWidget(this);
-    toolbar->setObjectName("mapToolbar");
-    toolbar->setAttribute(Qt::WA_StyledBackground, true);
-    toolbar->setAttribute(Qt::WA_NoMousePropagation, true);  // клики по панели не двигают карту
-    toolbar->setStyleSheet("#mapToolbar { background: rgba(255,255,255,220); border-radius: 6px; }");
+    ui = new Ui::MapWidget;
+    ui->setupUi(this);
+    defaultLeftMargin = ui->verticalLayout->contentsMargins().left();
 
-    auto *lay = new QHBoxLayout(toolbar);
-    lay->setContentsMargins(6, 6, 6, 6);
-    lay->setSpacing(4);
+    // Рисование - левая колонка
+    btnLine    = ui->pushButtonCreateLine;
+    btnPolygon = ui->pushButtonCreatePolygon;
+    btnFinish  = ui->pushButtonFinishDrawing;
+    btnUndo    = ui->pushButtonUndoPoint;
+    btnCancel  = ui->pushButtonCancelDrawing;
+    btnClear   = ui->pushButtonClearMap;
 
-    auto makeBtn = [&](const QString &text, bool checkable) {
-        auto *b = new QPushButton(text, toolbar);
-        b->setCheckable(checkable);
-        b->setFocusPolicy(Qt::NoFocus);   // чтобы не уводить фокус с карты
-        lay->addWidget(b);
-        return b;
-    };
+    // Управление картой - правая колонка
+    btnFilter   = ui->pushButtonLayerMenu;
+    btnGeomList = ui->pushButtonOpenLayerGeometry;
+    btnTrack    = ui->pushButtonAutoTrack;
+    btnZoomIn   = ui->pushButtonMapZoomIn;
+    btnZoomOut  = ui->pushButtonMapZoomOut;
 
-    btnLine    = makeBtn("Лінія", true);
-    btnPolygon = makeBtn("Полігон", true);
-    btnFinish  = makeBtn("Закінчити", false);
-    btnUndo    = makeBtn("Видалити точку", false);
-    btnCancel  = makeBtn("Відміна", false);
-    btnClear   = makeBtn("Очистити", false);
+    // Кнопки не забирают фокус - горячие клавиши рисования остаются у карты
+    for (QPushButton *b : findChildren<QPushButton *>())
+        b->setFocusPolicy(Qt::NoFocus);
 
     // Кнопка-переключатель: нажали - начали, нажали ещё раз - отменили
     connect(btnLine, &QPushButton::clicked, this, [this](bool on) {
@@ -1108,10 +1117,26 @@ void MapWidget::setupToolbar()
         store->clear();       // область разведки по умолчанию остаётся (см. GeometryStore::clear)
     });
 
-    toolbar->move(leftInset + 10, 10);
+    connect(btnZoomIn,  &QPushButton::clicked, this, &MapWidget::zoomIn);
+    connect(btnZoomOut, &QPushButton::clicked, this, &MapWidget::zoomOut);
+
+    trackMarkerMode = btnTrack->isChecked();   // в ui автотрекинг включён по умолчанию
+    connect(btnTrack, &QPushButton::toggled, this, [this](bool on) {
+        trackMarkerMode = on;
+        if (on && vehicleLayer->isValidPosition())
+            setCenter(vehicleLayer->getVehiclePosition());
+    });
+
+    // connect(btnGeomList, &QPushButton::clicked, this, [this] {
+    //     geometryInfoWidget->show();
+    //     geometryInfoWidget->raise();
+    //     geometryInfoWidget->activateWindow();
+    // });
+
+    connect(ui->currentCoordLineEdit, &LineEditDisplayCoordinates::doubleClicked,
+            this, &MapWidget::copyCenterCoordinates);
+
     onDrawingModeChanged(DrawingLayer::Mode::None);
-    toolbar->show();
-    toolbar->raise();
 }
 
 void MapWidget::onDrawingModeChanged(DrawingLayer::Mode mode)
@@ -1126,7 +1151,6 @@ void MapWidget::onDrawingModeChanged(DrawingLayer::Mode mode)
     btnUndo->setVisible(active);
     btnCancel->setVisible(active);
 
-    toolbar->adjustSize();
     updateCursor();
 
     // Как и раньше: сигнал и при отмене, и при завершении фигуры.
@@ -1142,57 +1166,6 @@ void MapWidget::onDrawingModeChanged(DrawingLayer::Mode mode)
 }
 
 // ------------------- ПАНЕЛЬ УПРАВЛЕНИЯ КАРТОЙ ------------------- //
-
-void MapWidget::setupControls()
-{
-    controls = new QWidget(this);
-    controls->setObjectName("mapControls");
-    controls->setAttribute(Qt::WA_StyledBackground, true);
-    controls->setAttribute(Qt::WA_NoMousePropagation, true);
-    controls->setStyleSheet("#mapControls { background: rgba(255,255,255,220); border-radius: 6px; }");
-
-    auto *lay = new QVBoxLayout(controls);
-    lay->setContentsMargins(6, 6, 6, 6);
-    lay->setSpacing(4);
-
-    auto makeBtn = [&](const QString &icon, const QString &tip, bool checkable) {
-        auto *b = new QPushButton(controls);
-        b->setIcon(IconHelper::createThemedIcon(icon));
-        b->setIconSize(QSize(20, 20));
-        b->setFixedSize(32, 32);
-        b->setToolTip(tip);
-        b->setCheckable(checkable);
-        b->setFocusPolicy(Qt::NoFocus);
-        lay->addWidget(b);
-        return b;
-    };
-
-    btnZoomIn   = makeBtn(":/icons/svg/bs5/plus.svg",          "Збільшити масштаб", false);
-    btnZoomOut  = makeBtn(":/icons/svg/bs5/dash.svg",          "Зменшити масштаб", false);
-    btnTrack    = makeBtn(":/icons/svg/custom/GPSTrack.svg",   "Центрувати карту на машині", true);
-    btnGeomList = makeBtn(":/icons/svg/bs5/list.svg",          "Управління полігонами та лініями", false);
-    btnFilter   = makeBtn(":/icons/svg/bs5/layers-half.svg",   "Відображення об'єктів", false);
-
-    connect(btnZoomIn,  &QPushButton::clicked, this, &MapWidget::zoomIn);
-    connect(btnZoomOut, &QPushButton::clicked, this, &MapWidget::zoomOut);
-
-    connect(btnTrack, &QPushButton::toggled, this, [this](bool on) {
-        trackMarkerMode = on;
-        if (on && vehicleLayer->isValidPosition())
-            setCenter(vehicleLayer->getVehiclePosition());
-    });
-
-    // connect(btnGeomList, &QPushButton::clicked, this, [this] {
-    //     geometryInfoWidget->show();
-    //     geometryInfoWidget->raise();
-    //     geometryInfoWidget->activateWindow();
-    // });
-
-    controls->adjustSize();
-    controls->move(width() - controls->width() - 10, 10);
-    controls->show();
-    controls->raise();
-}
 
 // Фильтр отображаемых объектов: каждый пункт - отдельный флаг видимости.
 // Новый объект/слой = одна строка addFilter().

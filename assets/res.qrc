@@ -2304,7 +2304,6 @@
         <file>icons/png/aris/Rad.png</file>
         <file>icons/png/aris/RadText.png</file>
         <file>icons/png/aris/Warning.svg</file>
-        <file>data/cbrn.json</file>
         <file>icons/svg/custom/line.svg</file>
         <file>icons/svg/custom/polyline.svg</file>
         <file>icons/svg/custom/LDR_On.svg</file>
@@ -2319,24 +2318,6 @@
         <file>icons/png/new/CarWhiteSiluete.png</file>
         <file>icons/png/new/CarEmitionInactive.png</file>
         <file>icons/png/new/CarEmitionActive.png</file>
-        <file>sound/G01.wav</file>
-        <file>sound/G02.wav</file>
-        <file>sound/G03.wav</file>
-        <file>sound/G04.wav</file>
-        <file>sound/G05.wav</file>
-        <file>sound/G06.wav</file>
-        <file>sound/G07.wav</file>
-        <file>sound/G08.wav</file>
-        <file>sound/G09.wav</file>
-        <file>sound/G10.wav</file>
-        <file>sound/G11.wav</file>
-        <file>sound/G12.wav</file>
-        <file>sound/G13.wav</file>
-        <file>sound/G14.wav</file>
-        <file>sound/G15.wav</file>
-        <file>sound/G16.wav</file>
-        <file>sound/G17.wav</file>
-        <file>sound/G18.wav</file>
         <file>icons/svg/custom/black/DeviceAutoMode.svg</file>
         <file>icons/svg/custom/black/DeviceManualMode.svg</file>
         <file>icons/svg/custom/black/GPSTrack.svg</file>
@@ -2370,7 +2351,6 @@
         <file>icons/svg/custom/black/checkpoint.svg</file>
         <file>icons/svg/custom/PlusSign.svg</file>
         <file>icons/svg/custom/drawPoint.svg</file>
-        <file>sound/G19.wav</file>
         <file>icons/png/new/Empty tile.png</file>
         <file>styles/System.qss</file>
         <file>icons/png/old/SplashScreenTisa.png</file>

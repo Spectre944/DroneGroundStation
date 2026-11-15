@@ -38,6 +38,7 @@
 #include "data_types/data_types.h"
 
 class QMenu;
+namespace Ui { class MapWidget; }
 class QPushButton;
 class QMouseEvent;
 class QWheelEvent;
@@ -619,9 +620,8 @@ public:
     bool isDrawing() const;
 
     // Слева поверх карты может быть открыта страница (оверлей MainWindow):
-    // панель рисования сдвигается вправо, чтобы не оказаться под ней.
+    // кнопки карты (левая колонка, координаты сверху) сдвигаются вправо, чтобы не оказаться под ней.
     void setLeftInset(int px);
-    QWidget *drawingToolbar() const { return toolbar; }   // чтобы соседние оверлеи не наезжали на панель рисования
 
 signals:
     void zoomChanged(int zoom);
@@ -669,8 +669,8 @@ protected:
 private:
     void setupLayers();
     void setupConnections();
-    void setupToolbar();
-    void setupControls();
+    void setupButtons();          // кнопки из mapwidget.ui (раскладка как в прошлом проекте)
+    void copyCenterCoordinates();
     void setupFilterMenu();
     void addFilter(const QString &text, bool checked, std::function<void(bool)> setter);
 
@@ -702,16 +702,16 @@ private:
     QPoint dragStartPos;
     bool isDragging = false;
 
-    // --- панель рисования ---
-    QWidget *toolbar = nullptr;
+    Ui::MapWidget *ui = nullptr;
+    int defaultLeftMargin = 0;
+
+    // --- кнопки рисования (указатели на виджеты из ui) ---
     QPushButton *btnLine = nullptr, *btnPolygon = nullptr, *btnFinish = nullptr,
                 *btnUndo = nullptr, *btnCancel = nullptr, *btnClear = nullptr;
     bool drawingWasActive = false;
-    int leftInset = 0;
     DrawingLayer::Mode lastDrawingMode = DrawingLayer::Mode::None;
 
-    // --- панель управления картой ---
-    QWidget *controls = nullptr;
+    // --- кнопки управления картой (из ui) ---
     QPushButton *btnZoomIn = nullptr, *btnZoomOut = nullptr, *btnTrack = nullptr,
                 *btnGeomList = nullptr, *btnFilter = nullptr;
     QMenu *filterMenu = nullptr;

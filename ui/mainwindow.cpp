@@ -16,7 +16,6 @@ const char DEFAULT_MAP_FILE[] = "D://Tiles//tiles_ukr_9-16.db";
 
 constexpr int    PANEL_MARGIN = 10;          // отступ панелей от краёв карты
 constexpr qreal  PANEL_WIDTH  = 1.0 / 3.0;   // доля ширины карты под боковую страницу
-constexpr int    COORD_PANEL_SIDE_MARGIN = 90;   // запас по краям для панели координат
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -26,7 +25,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     setupMap();
-    setupOverlays();
     setupPages();
     setupMenu();
 }
@@ -54,22 +52,6 @@ void MainWindow::setupMap()
 
     // "Выбрать на карте" для полей координат (TextEditCoordinates и т.п.)
     mapPicker = new MapPicker(mapWidget, this);
-}
-
-void MainWindow::setupOverlays()
-{
-    // --- Панель координат / полигонов: сверху по центру, размер по содержимому ---
-    coordinatesPanel = new CoordinatesPanel(this);
-    coordOverlay = new OverlayContainer(mapWidget);
-    coordOverlay->setContentWidget(coordinatesPanel);
-    coordOverlay->setAnchor(Qt::AlignHCenter | Qt::AlignTop);
-    coordOverlay->setOuterMargins({COORD_PANEL_SIDE_MARGIN, PANEL_MARGIN, COORD_PANEL_SIDE_MARGIN, PANEL_MARGIN});
-    coordOverlay->setContentMargins(10, 5, 10, 5);
-    coordOverlay->show();
-
-    // Панель рисования меняет ширину (во время рисования появляются кнопки) -
-    // панель координат должна сдвигаться вслед за ней
-    mapWidget->drawingToolbar()->installEventFilter(this);
 }
 
 void MainWindow::setupPages()
@@ -150,7 +132,7 @@ void MainWindow::showPanel(SidePanel *panel)
     panel->action->setChecked(true);
 }
 
-// Открытая слева страница не должна закрывать панель рисования карты
+// Открытая слева страница не должна закрывать кнопки карты
 void MainWindow::updateMapInsets()
 {
     int inset = 0;
@@ -158,12 +140,6 @@ void MainWindow::updateMapInsets()
         if (panel->overlay->isVisible())
             inset = qMax(inset, panel->overlay->geometry().right() + 1);
     mapWidget->setLeftInset(inset);
-
-    // Панель координат (сверху по центру) центрируется в свободной части карты,
-    // справа от панели рисования, а не поверх неё.
-    const int left = inset > 0 ? mapWidget->drawingToolbar()->geometry().right() + 1 + PANEL_MARGIN
-                               : COORD_PANEL_SIDE_MARGIN;
-    coordOverlay->setOuterMargins({left, PANEL_MARGIN, COORD_PANEL_SIDE_MARGIN, PANEL_MARGIN});
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
@@ -173,10 +149,6 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     case QEvent::Hide:
     case QEvent::Resize:
     case QEvent::Move:
-        if (watched == mapWidget->drawingToolbar()) {
-            updateMapInsets();
-            break;
-        }
         for (SidePanel *panel : std::as_const(panels)) {
             if (watched == panel->overlay) {
                 updateMapInsets();
