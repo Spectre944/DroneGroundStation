@@ -41,29 +41,20 @@ void SearchBar::setupUI()
 
     ui->pushButtonType->addActions(typeActionList);
     ui->pushButtonType->setInitialText("Тип загроз");
+    // Сейчас меряется только радиация - фильтр по типу угрозы не нужен
+    ui->pushButtonType->hide();
 
     //-------------------------------------------------------------------------//
 
     ui->pushButtonFlag->setInitialText("Тип точки");
 
+    // Пока сохраняются только точки; остальные типы (флаги, маршрути, об'єкти,
+    // зразки, області) вернуть сюда, когда появятся в БД
     pointFlag = new QAction("Точки", this);
-    flagFlag = new QAction("Флаги", this);
-    routeFlag = new QAction("Маршрути", this);
-    objectFlag = new QAction("Об'єкти", this);
-    sampleFlag = new QAction("Зразки", this);
-    calcZoneFlag = new QAction("Розраховані області", this);
-    factZoneFlag = new QAction("Фактичні межі зараженя", this);
-
-    pointFlag       ->setCheckable(true);
-    flagFlag        ->setCheckable(true);
-    routeFlag       ->setCheckable(true);
-    objectFlag      ->setCheckable(true);
-    sampleFlag      ->setCheckable(true);
-    calcZoneFlag    ->setCheckable(true);
-    factZoneFlag    ->setCheckable(true);
+    pointFlag->setCheckable(true);
 
     QList<QAction*> flagActionList;
-    flagActionList << pointFlag << flagFlag << routeFlag << objectFlag << sampleFlag << calcZoneFlag << factZoneFlag;
+    flagActionList << pointFlag;
 
     ui->pushButtonFlag->addActions(flagActionList);
 
@@ -107,13 +98,11 @@ void SearchBar::setupUI()
     sortByTimeNewFirst = new QAction("Сортувати по часу ↓ (нові спочатку)", this);
     sortByTimeOldFirst = new QAction("Сортувати по часу ↑ (старі спочатку)", this);
     // sortByDistance     = new QAction("Сортувати по відстані ↑ (ближні спочатку)", this);
-    sortByConcetration = new QAction("Сортувати по концентрації хімії ↓ (великі спочатку)", this);
     sortByRadiation    = new QAction("Сортувати по концентрації радіації ↓ (великі спочатку)", this);
 
     sortByTimeNewFirst->setCheckable(true);
     sortByTimeOldFirst->setCheckable(true);
     // sortByDistance->setCheckable(true);
-    sortByConcetration->setCheckable(true);
     sortByRadiation->setCheckable(true);
 
     sortByTimeNewFirst->setChecked(true);
@@ -124,12 +113,11 @@ void SearchBar::setupUI()
     optionGroup->addAction(sortByTimeNewFirst);
     optionGroup->addAction(sortByTimeOldFirst);
     // optionGroup->addAction(sortByDistance);
-    optionGroup->addAction(sortByConcetration);
     optionGroup->addAction(sortByRadiation);
 
 
     QList<QAction*> optionActionList;
-    optionActionList << sortByTimeNewFirst << sortByTimeOldFirst << sortByConcetration << sortByRadiation;
+    optionActionList << sortByTimeNewFirst << sortByTimeOldFirst << sortByRadiation;
 
     ui->pushButtonOptions->addActions(optionActionList);
 
@@ -139,7 +127,6 @@ void SearchBar::setupUI()
     ui->pushButtonFlag->setFocus();
 
     setTabOrder({
-        ui->pushButtonType,
         ui->pushButtonFlag,
         ui->pushButtonDate,
         ui->pushButtonSquare,
@@ -422,9 +409,6 @@ QString SearchBar::getSortFilter()
     }
     else if (sortByTimeOldFirst->isChecked()) {
         sortString = " ORDER BY k.datetime ASC";
-    }
-    else if (sortByConcetration->isChecked()) {
-        sortString = " ORDER BY MAX(l.conc) DESC";
     }
     else if (sortByRadiation->isChecked()) {
         sortString = " ORDER BY MAX(COALESCE(b.ped, m.ped)) DESC";

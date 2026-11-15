@@ -76,7 +76,8 @@ void DatabasePage::setupUI()
     ui->tableControl->setIcon(QPixmap(":/icons/png/old/databaseColor.png"));
     ui->tableControl->setNavigatorBtnVisible(false);
 
-#ifdef DZURA
+    // Простая таблица (раньше только под DZURA; ни DZURA, ни BRDM в CMake не заданы,
+    // поэтому таблица не создавалась вовсе и место занимала панель поиска)
     simplelModel = new SimpleTableModel(this);
     simplelModel->setHeaderDataFromList(QStringList() << "ID" << "Параметри" << "AirMarWX200" << "LCD4" << "БДБГ-Т/МКС-УМ");
     simpleTableView = new QTableView(this);
@@ -86,11 +87,12 @@ void DatabasePage::setupUI()
     simpleTableView->setTabKeyNavigation(false);
     simpleTableView->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     simpleTableView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    ui->tableLayout->addWidget(simpleTableView);
+    simpleTableView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    ui->tableLayout->addWidget(simpleTableView, 1);
 
-    // Hide flags type for Dzura (because it only one type of savepoints)
-    ui->widgetSerach->getWidget(SearchBar::WidgetType::Flag)->setVisible(false);
-#endif
+    // Панель поиска - по высоте содержимого, всё остальное место - таблице
+    ui->widgetSerach->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    ui->verticalLayout->setStretchFactor(ui->tableLayout, 1);
 
 #ifdef BRDM
     stickyModel = new StickyTableModel(this);
@@ -108,7 +110,6 @@ void DatabasePage::setupUI()
     ui->tableControl->setFocus();
 
     setTabOrder({
-        ui->widgetSerach->getWidget(SearchBar::WidgetType::Type),
         ui->widgetSerach->getWidget(SearchBar::WidgetType::Flag),
         ui->widgetSerach->getWidget(SearchBar::WidgetType::Date),
         ui->widgetSerach->getWidget(SearchBar::WidgetType::Square),
@@ -131,7 +132,6 @@ void DatabasePage::connections()
     connect(ui->widgetSerach, &SearchBar::mapQueryRequested, this, &DatabasePage::mapQueryRequested);
     connect(ui->widgetSerach, &SearchBar::querySearchAreaFormed, this, &DatabasePage::querySearchAreaFormed);
 
-#ifdef DZURA
     connect(ui->tableControl, &TableControl::clearRequested, simplelModel, &SimpleTableModel::clearData);
     connect(ui->tableControl, &TableControl::clearRequested, this, &DatabasePage::clearArchiveMapDataRequested);
     connect(ui->tableControl, &TableControl::adjustRequested, this, [this]() {
@@ -151,8 +151,6 @@ void DatabasePage::connections()
         }
     });
 
-#endif
-
 #ifdef BRDM
     connect(ui->tableControl, &TableControl::clearRequested, stickyModel, &StickyTableModel::clearData);
     connect(ui->tableControl, &TableControl::adjustRequested, this, [this]() {
@@ -170,6 +168,14 @@ void DatabasePage::connections()
 
 void DatabasePage::testData()
 {
+    if (simplelModel) {
+        const QString param = "Координати\nш: 50.4234\nд: 30.5842\n\nЧас:  17:00:00\nДата: 15.11.2026";
+        const QString rad   = "ПАЕД БДБГ-Т:  0.15 мкЗв/г\nПАЕД МКС-УМ:  0.14 мкЗв/г\nДоза: ....... 1.20 мкЗв";
+        QVector<QVector<QVariant>> rows;
+        for (int i = 0; i < 10; ++i)
+            rows.append({i + 1, param, "Дані відсутні", "Дані відсутні", rad});
+        updateTableData(rows);
+    }
 
     if(stickyModel){
 

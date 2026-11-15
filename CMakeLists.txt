@@ -30,7 +30,7 @@ qt_add_executable(DroneGroundStation
     backend/coords/coordhandler.cpp backend/coords/coordhandler.h backend/coords/mgrs.cpp backend/coords/mgrs.h backend/coords/polarst.cpp backend/coords/polarst.h backend/coords/tranmerc.cpp backend/coords/tranmerc.h backend/coords/ups.cpp backend/coords/ups.h backend/coords/utm.cpp backend/coords/utm.h
     ui/modules/notifier/notifier.cpp ui/modules/notifier/notifier.h
     ui/components/custom/custom.cpp ui/components/custom/custom.h
-    ui/pages/database/databasepage.cpp ui/pages/database/databasepage.h ui/pages/database/databasepage.ui ui/pages/device/devicepage.cpp ui/pages/device/devicepage.h ui/pages/device/devicepage.ui ui/pages/recon/reconpage.cpp ui/pages/recon/reconpage.h ui/pages/recon/reconpage.ui ui/pages/settings/settingspage.cpp ui/pages/settings/settingspage.h ui/pages/settings/settingspage.ui
+    ui/pages/database/databasepage.cpp ui/pages/database/databasepage.h ui/pages/database/databasepage.ui ui/pages/device/devicepage.cpp ui/pages/device/devicepage.h ui/pages/device/devicepage.ui ui/pages/instruments/instrumentspage.cpp ui/pages/instruments/instrumentspage.h ui/pages/instruments/instrumentspage.ui ui/pages/recon/reconpage.cpp ui/pages/recon/reconpage.h ui/pages/recon/reconpage.ui ui/pages/settings/settingspage.cpp ui/pages/settings/settingspage.h ui/pages/settings/settingspage.ui
     ui/modules/tables/tabledata.cpp ui/modules/tables/tabledata.h ui/modules/tables/tabledata.ui
     backend/tables/tablemodel.cpp backend/tables/tablemodel.h
     ui/components/dialog/dialog.cpp ui/components/dialog/dialog.h
