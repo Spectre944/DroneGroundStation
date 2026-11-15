@@ -1,14 +1,12 @@
 #ifndef SETTINGSPAGE_H
 #define SETTINGSPAGE_H
 
-#include "QFileDialog"
 #include <QWidget>
-#include <QLine>
-#include <QtMinMax>
-#include <QJsonArray>
-
+#include <QFrame>
+#include <QMap>
 
 #include <ui/modules/settingsfield/settingsfield.h>
+#include <ui/modules/settingsfield/settingsdeviceitem.h>
 #include <backend/settings/settings.h>
 #include <backend/data_types/data_types.h>
 #include <ui/modules/notifier/notifier.h>
@@ -17,6 +15,10 @@ namespace Ui {
 class SettingsPage;
 }
 
+// Страница настроек: три блока
+//   Інтерфейс  - размер текста, дельта текста, тема
+//   Прилади    - статус подключённых приборов (SettingsDeviceItem), добавляются через addDevice()
+//   Програма   - автосохранение по времени / по дистанции, путь к файлу карт
 class SettingsPage : public QWidget
 {
     Q_OBJECT
@@ -28,78 +30,44 @@ public:
     void saveSettings();
     void updateSettings();
 
-public slots:
-    void onAirmarTestDataGenerated(const airmarTest& testData);
-    void onGpsTestDataGenerated(const gpsTest& testData);
-    void onLcdTestDataGenerated(const lcdTest& testData);
-    void onBdbgTestDataGenerated(const bdbgTest& testData);
-    void onSvngTestDataGenerated(const svngTest& testData);
-    void onSrhbTestDataGenerated(const srhrTest& testData);
-    void onMksuTestDataGenerated(const mksuTest& testData);
-    void onDeviceRemovedFromPoll(TypeDev);
-    void onUpdateDiagnosticInfoDzura(const lcdTest&, const mksuTest&, const bdbgTest&, const airmarTest&, const gpsTest&);
-    void onUpdateDiagnosticInfoBrdm(const lcdTest&, const svngTest&, const srhrTest&, const airmarTest&);
-    void onCommanderKeyInserted(bool, QString);
+    // Ключи в файле настроек
+    static constexpr char KEY_FONT_SIZE[]      = "interface/fontSize";
+    static constexpr char KEY_FONT_DELTA[]     = "interface/fontDelta";
+    static constexpr char KEY_APP_THEME[]      = "interface/appTheme";
+    static constexpr char KEY_SAVE_DISTANCE[]  = "programm/autosave/distance";
+    static constexpr char KEY_SAVE_TIME[]      = "programm/autosave/time";
+    static constexpr char KEY_MAP_FILE[]       = "programm/mapFilePath";
+
+    // --- Прилади ---
+    // Добавить строку прибора в блок "Прилади". Возвращает виджет, через который
+    // потом обновляется статус (setDeviceStatus, setLastUpdateTime, increseErrorCount ...).
+    SettingsDeviceItem *addDevice(const SettingsDeviceItem::DeviceData &data);
+    SettingsDeviceItem *deviceItem(TypeDev type) const { return m_devices.value(type, nullptr); }
 
 signals:
-    void openDiagnosticWindow();
-    void startDiagnosicRequsted();
     void settingsSaved();
-    void styleChangeRequested(int);
+    void styleChangeRequested(int themeId);          // -1 = поменялся только шрифт
 
-    void settingsWorkModeChanged(PROGRAMM_SETTINGS::ReconMode mode);
-    void settingsAudioModeChanged(PROGRAMM_SETTINGS::SoundMode mode);
-    void settingsSaveDistanceChanged(const QVariant&);
-    void settingsSavePeriodChanged(const QVariant&);
-    void settingsSVDERThresholdChanged(const QVariant&);
-    void settingsSRDERThresholdChanged(const QVariant&);
-    void settingsBDBGDERThresholdChanged(const QVariant&);
-    void settingsMKSUDERThresholdChanged(const QVariant&);
-    void settingsMKSUDoseThresholdChanged(const QVariant&);
-    void settingsHNOThresholdChanged(const QVariant&);
-    void settingsAsThresholdChanged(const QVariant&);
-    void settingsSThresholdChanged(const QVariant&);
-    void settingsPThresholdChanged(const QVariant&);
-    void settingsCHThresholdChanged(const QVariant&);
-
-    void removeDeviceFromSystem(TypeDev);
-    void reconnectDevice(TypeDev);
-
-    void cryptographyAccessChanged(bool);
-    void mapFileSelected(QString);
+    void settingsSaveDistanceChanged(const QVariant &meters);
+    void settingsSavePeriodChanged(const QVariant &minutes);
+    void mapFileSelected(const QString &path);
 
 private:
     Ui::SettingsPage *ui;
 
-    void setupUI();
-    void fillData();
     void connections();
-    void lockAdminFunctions();
-    void updateAdminFunctions();
-    void forceUpdateComboBoxSettings();
-
     void setupInterfaceFields();
-    void setupGeneralFields();
-    void setupDevices();
-    void setupSerialNumberFromFile();
-    void buildLayout();
-    void hideUnusedUI();
-    void hideHeadquartersUI();
-    QFrame* createHorizontalLine();
+    void setupDeviceFields();
+    void setupProgramFields();
+    void loadSerialNumbersFromFile();
+    void selectMapFile();
+    void updateMapFieldText();
 
+    static QString deviceKey(TypeDev type);          // ключ прибора в settings/devices.json
+    QFrame *createHorizontalLine();
 
-    bool adminAccess = false;
-
-    QFileDialog mapSelectDialog;
-    QString mapFilePath;
-
-    static const int MSV_TO_MKSV = 1000;
-
-    struct DeviceThresholds {
-        QList<QWidget*> thresholds;
-        bool isVisible = false;
-    };
-
+    QMap<TypeDev, SettingsDeviceItem *> m_devices;
+    QString m_mapFilePath;
 };
 
 #endif // SETTINGSPAGE_H

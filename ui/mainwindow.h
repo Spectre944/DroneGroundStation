@@ -2,17 +2,19 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QStackedLayout>
-#include <QStackedWidget>
-#include <QSplitter>
+#include <QList>
 
 #include "map/mapwidget.h"
 #include <backend/settings/settings.h>
-#include <ui/modules/leftMenu/leftmenu.h>
 #include <ui/modules/coordinatesPanel/coordinatespanel.h>
 
 #include "ui/windows/overlay/overlaycontainer.h"
 
+class QAction;
+class MapPicker;
+class ReconPage;
+class DatabasePage;
+class SettingsPage;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -28,20 +30,44 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
+    // Боковая панель поверх карты: левая 1/3 окна на всю высоту.
+    // Страница остаётся обычным виджетом - при необходимости её легко
+    // перенести в QStackedWidget, ничего не меняя внутри неё.
+    struct SidePanel {
+        QAction          *action  = nullptr;   // пункт меню (checkable)
+        OverlayContainer *overlay = nullptr;
+        QWidget          *page    = nullptr;
+    };
+
+    void setupMap();
+    void setupOverlays();
+    void setupPages();
+    void setupMenu();
+
+    SidePanel *addSidePanel(const QString &title, QWidget *page);
+    void togglePanel(SidePanel *panel);
+    void showPanel(SidePanel *panel);
+    void updateMapInsets();
+
     Ui::MainWindow *ui;
 
     MapWidget *mapWidget = nullptr;
+    MapPicker *mapPicker = nullptr;
 
-    LeftMenu *leftMenu = nullptr;
-    OverlayContainer * leftOverlay = nullptr;
-
-    OverlayContainer * coordOverlay = nullptr;
+    OverlayContainer *coordOverlay = nullptr;
     CoordinatesPanel *coordinatesPanel = nullptr;
 
-    QStackedWidget *stackedWidget = nullptr;
-    OverlayContainer *pageOverlay = nullptr;
-    QSplitter *mainSplitter = nullptr;
+    ReconPage    *reconPage    = nullptr;
+    DatabasePage *databasePage = nullptr;
+    SettingsPage *settingsPage = nullptr;
 
+    QList<SidePanel *> panels;
+    SidePanel *reconPanel    = nullptr;
+    SidePanel *databasePanel = nullptr;
+    SidePanel *settingsPanel = nullptr;
 };
 #endif // MAINWINDOW_H

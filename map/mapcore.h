@@ -58,8 +58,8 @@ typedef struct tsmarker
     bool is_sel;
 }smarker;
 
-extern vector<smarker> dangers;
-extern vector<smarker> archiveDangers;
+// Маркеры угроз больше не хранятся в глобальных массивах:
+// активные/архивные данные живут в ThreatLayer (см. MapWidget::setupActiveThreads / setupdArchiveThreads).
 
 class mapobject
 {
@@ -179,10 +179,10 @@ class cdirprovider
 public:
     cdirprovider(const char *p = "")
     {
+        // Файл карты открывается явно (MapWidget::setMapFile), здесь только запоминаем путь
         if (*p) {
             strcpy_s(dbPath, p);
         }
-        openTileDB(dbPath);
     }
 
     ~cdirprovider()
@@ -205,8 +205,10 @@ public:
         closeTileDB(); // закрываем, если уже открыта
         strcpy_s(dbPath, p);
 
-        if (sqlite3_open(dbPath, &db)) {
-            qDebug() << "Failed to open DB:" << sqlite3_errmsg(db);
+        // Только чтение: sqlite3_open() молча создаёт пустой файл, если его нет
+        if (sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
+            qDebug() << "Failed to open DB:" << dbPath << sqlite3_errmsg(db);
+            sqlite3_close(db);
             db = nullptr;
             return false;
         }

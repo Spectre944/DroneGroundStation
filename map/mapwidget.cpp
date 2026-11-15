@@ -787,6 +787,20 @@ void MapWidget::centerOnPoint(const smarker &marker)
     setCenter(marker.pt);
 }
 
+// ------------------------ РИСОВАНИЕ ------------------------ //
+
+void MapWidget::startPolygonDrawing() { if (drawing) drawing->startPolygon(); }
+void MapWidget::startLineDrawing()    { if (drawing) drawing->startLine(); }
+void MapWidget::cancelDrawing()       { if (drawing) drawing->cancel(); }
+bool MapWidget::isDrawing() const     { return drawing && drawing->isActive(); }
+
+void MapWidget::setLeftInset(int px)
+{
+    leftInset = qMax(0, px);
+    if (toolbar)
+        toolbar->move(leftInset + 10, 10);
+}
+
 // ------------------------ СЛОИ ------------------------ //
 
 void MapWidget::addLayer(MapLayer *layer)
@@ -848,11 +862,13 @@ void MapWidget::setupConnections()
     connect(drawing, &DrawingLayer::polygonFinished, this,
             [this](const QVector<smappoint> &pts) {
                 store->add(GeometryKind::Polygon, pts);
+                emit geometryFinished(GeometryKind::Polygon, pts);
                 emit coordinatesArrayReady(pts);
             });
     connect(drawing, &DrawingLayer::lineFinished, this,
             [this](const QVector<smappoint> &pts) {
                 store->add(GeometryKind::Line, pts);
+                emit geometryFinished(GeometryKind::Line, pts);
                 emit coordinatesArrayReady(pts);
             });
 
@@ -1092,7 +1108,7 @@ void MapWidget::setupToolbar()
         store->clear();       // область разведки по умолчанию остаётся (см. GeometryStore::clear)
     });
 
-    toolbar->move(10, 10);
+    toolbar->move(leftInset + 10, 10);
     onDrawingModeChanged(DrawingLayer::Mode::None);
     toolbar->show();
     toolbar->raise();
@@ -1113,11 +1129,16 @@ void MapWidget::onDrawingModeChanged(DrawingLayer::Mode mode)
     toolbar->adjustSize();
     updateCursor();
 
+    // Как и раньше: сигнал и при отмене, и при завершении фигуры.
+    // Плюс при переключении линия <-> полигон посреди рисования: начатая фигура пропадает,
+    // и тот, кто ждал её (MapPicker), должен об этом узнать.
+    if (drawingWasActive && mode != lastDrawingMode)
+        emit drawingCanceled();
+
     if (active)
         setFocus();   // чтобы работали горячие клавиши
-    else if (drawingWasActive)
-        emit drawingCanceled();   // как и раньше: и при отмене, и при завершении
     drawingWasActive = active;
+    lastDrawingMode = mode;
 }
 
 // ------------------- ПАНЕЛЬ УПРАВЛЕНИЯ КАРТОЙ ------------------- //
