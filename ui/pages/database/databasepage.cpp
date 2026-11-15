@@ -38,9 +38,6 @@ void DatabasePage::updateTableData(const QVector<QVector<QVariant>> &data)
 
 void DatabasePage::updateMapData(const QVector<QVector<QVariant>> &data)
 {
-    archiveDangers.clear();
-    archiveDangers.reserve(data.size()); // Оптимизация памяти
-
     QVector<smarker> markers;
     markers.reserve(data.size());
 
@@ -49,7 +46,6 @@ void DatabasePage::updateMapData(const QVector<QVector<QVariant>> &data)
         tmp.pt.latt = point.at(1).toDouble();
         tmp.pt.longt = point.at(2).toDouble();
         tmp.type = point.at(3).toInt();
-        archiveDangers.push_back(tmp);
         markers.push_back(tmp);
     }
 

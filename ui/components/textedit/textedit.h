@@ -15,7 +15,6 @@
 #include <map/mapcore.h>
 #include <backend/utilities/utilities.h>
 
-class CoordinatesManager;
 
 class TextEditCoordinates : public QWidget
 {
@@ -61,6 +60,7 @@ private:
     void fillData();
     void connections();
     void setValidationError(const QString &errorText);
+    void setPicking(bool on);
     bool m_coordinatesValid = false;
     int m_coordinatesCount = 0;
 

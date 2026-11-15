@@ -612,11 +612,23 @@ public:
 
     const GeometryStore *geometry() const { return store; }
 
+    // --- рисование (используется MapPicker) ---
+    void startPolygonDrawing();
+    void startLineDrawing();
+    void cancelDrawing();
+    bool isDrawing() const;
+
+    // Слева поверх карты может быть открыта страница (оверлей MainWindow):
+    // панель рисования сдвигается вправо, чтобы не оказаться под ней.
+    void setLeftInset(int px);
+    QWidget *drawingToolbar() const { return toolbar; }   // чтобы соседние оверлеи не наезжали на панель рисования
+
 signals:
     void zoomChanged(int zoom);
     void centerPositionChanged(const smappoint &pt);
 
     void coordinatesArrayReady(const QVector<smappoint> &coords);   // завершена линия/полигон
+    void geometryFinished(GeometryKind kind, const QVector<smappoint> &coords);  // то же + тип фигуры
     void threatClicked(int index);
     void archiveThreatClicked(int index);
     void drawingCanceled();
@@ -695,6 +707,8 @@ private:
     QPushButton *btnLine = nullptr, *btnPolygon = nullptr, *btnFinish = nullptr,
                 *btnUndo = nullptr, *btnCancel = nullptr, *btnClear = nullptr;
     bool drawingWasActive = false;
+    int leftInset = 0;
+    DrawingLayer::Mode lastDrawingMode = DrawingLayer::Mode::None;
 
     // --- панель управления картой ---
     QWidget *controls = nullptr;
@@ -708,7 +722,7 @@ private:
     // gpsData lastGps;        QDateTime lastGpsUpdate;
     // airmarData lastAirmar;  QDateTime lastAirmarUpdate;
 
-    static const int MAX_ZOOM = 16;
-    static const int MIN_ZOOM = 3;
-    static const int DRAG_THRESHOLD = 5;
+    static constexpr int MAX_ZOOM = 16;
+    static constexpr int MIN_ZOOM = 3;
+    static constexpr int DRAG_THRESHOLD = 5;
 };

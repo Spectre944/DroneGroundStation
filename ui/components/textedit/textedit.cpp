@@ -1,5 +1,5 @@
 #include "textedit.h"
-#include <map/coordinatesmanager.h>
+#include <map/mappicker.h>
 
 TextEditCoordinates::TextEditCoordinates(QWidget *parent)
     : QWidget{parent}
@@ -66,7 +66,29 @@ TextEditCoordinates::CoordinatesMode TextEditCoordinates::getMode()
 
 void TextEditCoordinates::requestCoordinates()
 {
-    CoordinatesManager::instance()->requestCoordinatesFromMap(this);
+    MapPicker *picker = MapPicker::instance();
+    if (!picker)
+        return;
+
+    // Повторное нажатие во время выбора - отмена
+    if (picker->isActiveFor(this)) {
+        picker->cancel();
+        return;
+    }
+
+    const GeometryKind kind = (_mode == CoordinatesMode::Route) ? GeometryKind::Line
+                                                                 : GeometryKind::Polygon;
+    setPicking(true);
+    picker->pick(kind, this,
+                 [this](const QVector<smappoint> &pts) { setPicking(false); setCoordinatesFromMap(pts); },
+                 [this] { setPicking(false); });
+}
+
+void TextEditCoordinates::setPicking(bool on)
+{
+    m_pushButton->setChecked(on);
+    m_pushButton->setToolTip(on ? "Малюйте на карті. Enter / ПКМ - завершити, Esc - скасувати"
+                                : "Вибрати на карті");
 }
 
 void TextEditCoordinates::setCoordinatesFromMap(QVector<smappoint> coordinates)
@@ -84,8 +106,6 @@ void TextEditCoordinates::setCoordinatesFromMap(QVector<smappoint> coordinates)
 
 void TextEditCoordinates::setupUI()
 {
-    CoordinatesManager::instance()->registerCoordinateField(this);
-
     m_label          = new QLabel(this);
     m_comboBox       = new QComboBox(this);
     m_textEdit       = new QTextEdit(this);
@@ -110,6 +130,8 @@ void TextEditCoordinates::setupUI()
     //m_pushButton->setText("...");
     m_pushButton->setIcon(IconHelper::createThemedIcon(":/icons/svg/custom/ReconAreaMode.svg"));
     m_pushButton->setIconSize(QSize(25, 25));
+    m_pushButton->setCheckable(true);   // нажата, пока идёт выбор на карте
+    m_pushButton->setToolTip("Вибрати на карті");
     m_pushButton->setFixedSize(QSize(StyleConstants::textEditControlHeight, StyleConstants::textEditControlHeight));
     //m_pushButton->setFixedWidth(40);
 

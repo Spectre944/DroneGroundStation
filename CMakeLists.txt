@@ -34,7 +34,7 @@ qt_add_executable(DroneGroundStation
     ui/components/combobox/combobox.cpp ui/components/combobox/combobox.h ui/components/spinbox/spinbox.cpp ui/components/spinbox/spinbox.h
     ui/modules/searchBar/searchbar.cpp ui/modules/searchBar/searchbar.h ui/modules/searchBar/searchbar.ui
     ui/components/button/button.cpp ui/components/button/button.h ui/components/menu/menu.cpp ui/components/menu/menu.h
-    map/coordinatesmanager.cpp map/coordinatesmanager.h
+    map/mappicker.cpp map/mappicker.h
 )
 
 target_include_directories(DroneGroundStation

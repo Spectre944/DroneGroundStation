@@ -72,19 +72,19 @@
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <property name="spacing">
-           <number>100</number>
+           <number>20</number>
           </property>
           <property name="leftMargin">
-           <number>80</number>
+           <number>10</number>
           </property>
           <property name="topMargin">
-           <number>50</number>
+           <number>10</number>
           </property>
           <property name="rightMargin">
-           <number>80</number>
+           <number>10</number>
           </property>
           <property name="bottomMargin">
-           <number>50</number>
+           <number>10</number>
           </property>
           <item>
            <widget class="QFrame" name="FrameUI">
@@ -217,39 +217,6 @@
                 <enum>QFrame::Shadow::Raised</enum>
                </property>
                <layout class="QVBoxLayout" name="verticalLayout_11">
-                <item>
-                 <widget class="SettingsFieldButton" name="diagnosticField" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="SVDERThreshold" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="SRDERThreshold" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="SRChemThresholdNHO" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="SRChemThresholdAs" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="SRChemThresholdP" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="SRChemThresholdS" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldSpinBox" name="SRChemThresholdCH" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="MKDERThreshold" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="MKDoseThreshold" native="true"/>
-                </item>
-                <item>
-                 <widget class="SettingsFieldDoubleSpinBox" name="BDDERThreshold" native="true"/>
-                </item>
                </layout>
               </widget>
              </item>
@@ -296,26 +263,6 @@
                </property>
                <layout class="QVBoxLayout" name="verticalLayout_10">
                 <item>
-                 <widget class="SettingsFieldCombobox" name="workMode" native="true"/>
-                </item>
-                <item>
-                 <widget class="Line" name="line_10">
-                  <property name="orientation">
-                   <enum>Qt::Orientation::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="SettingsFieldCombobox" name="audioEnable" native="true"/>
-                </item>
-                <item>
-                 <widget class="Line" name="line_9">
-                  <property name="orientation">
-                   <enum>Qt::Orientation::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item>
                  <widget class="SettingsFieldSpinBox" name="dataSaveDistance" native="true"/>
                 </item>
                 <item>
@@ -337,16 +284,6 @@
                 </item>
                 <item>
                  <widget class="SettingsFieldButton" name="mapSettingsField" native="true"/>
-                </item>
-                <item>
-                 <widget class="Line" name="line_12">
-                  <property name="orientation">
-                   <enum>Qt::Orientation::Horizontal</enum>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="SettingsFieldButton" name="adminField" native="true"/>
                 </item>
                </layout>
               </widget>
@@ -409,12 +346,6 @@
  <customwidgets>
   <customwidget>
    <class>SettingsFieldCombobox</class>
-   <extends>QWidget</extends>
-   <header>./ui/modules/settingsfield/settingsfield.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>SettingsFieldDoubleSpinBox</class>
    <extends>QWidget</extends>
    <header>./ui/modules/settingsfield/settingsfield.h</header>
    <container>1</container>

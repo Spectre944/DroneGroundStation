@@ -1,6 +1,6 @@
 #include "mapcore.h"
 mapcore m_core(30.5842, 50.4234, 8);
-cdirprovider m_prov("D:\\tile\\");
+cdirprovider m_prov;   // файл карты задаёт MainWindow через MapWidget::setMapFile
 
 mapdraw m_draw(&m_core,&m_prov,0);
 
