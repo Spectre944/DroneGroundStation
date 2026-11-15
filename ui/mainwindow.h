@@ -6,7 +6,6 @@
 
 #include "map/mapwidget.h"
 #include <backend/settings/settings.h>
-#include <ui/modules/coordinatesPanel/coordinatespanel.h>
 
 #include "ui/windows/overlay/overlaycontainer.h"
 
@@ -44,7 +43,6 @@ private:
     };
 
     void setupMap();
-    void setupOverlays();
     void setupPages();
     void setupMenu();
 
@@ -57,9 +55,6 @@ private:
 
     MapWidget *mapWidget = nullptr;
     MapPicker *mapPicker = nullptr;
-
-    OverlayContainer *coordOverlay = nullptr;
-    CoordinatesPanel *coordinatesPanel = nullptr;
 
     ReconPage    *reconPage    = nullptr;
     DatabasePage *databasePage = nullptr;

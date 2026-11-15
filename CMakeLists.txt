@@ -5,6 +5,11 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat)
 
 qt_standard_project_setup()
 
+# qt_standard_project_setup() включает только AUTOMOC и AUTOUIC.
+# Без AUTORCC файл assets/res.qrc в списке исходников молча игнорируется
+# и ресурсы (:/icons, :/fonts, :/locale ...) в программу не попадают.
+set(CMAKE_AUTORCC ON)
+
 qt_add_executable(DroneGroundStation
     WIN32 MACOSX_BUNDLE
     assets/res.qrc
@@ -13,7 +18,7 @@ qt_add_executable(DroneGroundStation
     ui/mainwindow.h
     ui/mainwindow.ui
     db/sqlite3.c db/sqlite3.h
-    map/mapcore.cpp map/mapcore.h map/mapwidget.cpp map/mapwidget.h
+    map/mapcore.cpp map/mapcore.h map/mapwidget.cpp map/mapwidget.h map/mapwidget.ui
     map/drawinglayer.cpp map/drawinglayer.h map/maplayer.h
     backend/settings/settings.h backend/settings/settings.cpp
     ui/windows/overlay/overlaylayer.cpp ui/windows/overlay/overlaylayer.h ui/windows/overlay/overlaywidget.cpp ui/windows/overlay/overlaywidget.h
