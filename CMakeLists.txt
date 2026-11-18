@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(DroneGroundStation LANGUAGES CXX C)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat SerialPort)
 
 qt_standard_project_setup()
 
@@ -40,6 +40,8 @@ qt_add_executable(DroneGroundStation
     ui/modules/searchBar/searchbar.cpp ui/modules/searchBar/searchbar.h ui/modules/searchBar/searchbar.ui
     ui/components/button/button.cpp ui/components/button/button.h ui/components/menu/menu.cpp ui/components/menu/menu.h
     map/mappicker.cpp map/mappicker.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+    backend/classes/drone_core.cpp backend/classes/drone_core.h
 )
 
 target_include_directories(DroneGroundStation
@@ -57,6 +59,7 @@ target_link_libraries(DroneGroundStation
         Qt::Widgets
         Qt6::Svg
         Qt6::Core5Compat
+        Qt6::SerialPort
 )
 
 # add_library(sqlite3 STATIC db/sqlite3.c)
