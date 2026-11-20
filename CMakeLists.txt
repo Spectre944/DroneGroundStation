@@ -47,6 +47,9 @@ qt_add_executable(DroneGroundStation
     ui/modules/eventLog/eventlog.cpp ui/modules/eventLog/eventlog.h
     ui/modules/spectrumView/spectrumplot.cpp ui/modules/spectrumView/spectrumplot.h
     ui/modules/spectrumView/spectrumview.cpp ui/modules/spectrumView/spectrumview.h
+    ui/modules/preflight/preflightchecklist.cpp ui/modules/preflight/preflightchecklist.h
+    ui/modules/alarmCenter/alarmcenter.cpp ui/modules/alarmCenter/alarmcenter.h
+    ui/modules/alarmCenter/alarmdrawer.cpp ui/modules/alarmCenter/alarmdrawer.h
 )
 
 target_include_directories(DroneGroundStation

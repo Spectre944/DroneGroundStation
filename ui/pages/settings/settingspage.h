@@ -10,6 +10,9 @@
 #include <backend/settings/settings.h>
 #include <backend/data_types/data_types.h>
 #include <ui/modules/notifier/notifier.h>
+#include "backend/classes/core_types.h"
+
+class PreflightChecklist;
 
 namespace Ui {
 class SettingsPage;
@@ -44,7 +47,20 @@ public:
     SettingsDeviceItem *addDevice(const SettingsDeviceItem::DeviceData &data);
     SettingsDeviceItem *deviceItem(TypeDev type) const { return m_devices.value(type, nullptr); }
 
+    PreflightChecklist *preflightWindow() const { return m_preflight; }
+
+public slots:
+    // --- от DroneCore (подключаются в MainWindow) ---
+    void onLinkStatus(const LinkStatus &status);            ///< строка «Радіомодем»
+    void onLoggerStatus(const LoggerStatus &status);        ///< строки приборов логгера + окно проверки
+    void onRoutePoint(const RoutePoint &point);             ///< стартовая точка — в окно проверки
+    void onAllowedCommands(const QList<quint8> &ids);       ///< доступность кнопок окна проверки
+
+    void openPreflightWindow();
+
 signals:
+    void commandRequested(const CommandRequest &request);   ///< ID01 / ID02 / ID03 из окна проверки → DroneCore::sendCommand
+
     void settingsSaved();
     void styleChangeRequested(int themeId);          // -1 = поменялся только шрифт
 
@@ -68,6 +84,9 @@ private:
 
     QMap<TypeDev, SettingsDeviceItem *> m_devices;
     QString m_mapFilePath;
+
+    SettingsFieldButton *m_preflightField = nullptr;
+    PreflightChecklist  *m_preflight      = nullptr;
 };
 
 #endif // SETTINGSPAGE_H

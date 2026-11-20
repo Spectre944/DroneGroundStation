@@ -8,6 +8,9 @@
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPair>
+
+#include "ui/modules/preflight/preflightchecklist.h"
 
 SettingsPage::SettingsPage(QWidget *parent)
     : QWidget(parent)
@@ -57,11 +60,100 @@ void SettingsPage::setupInterfaceFields()
 
 void SettingsPage::setupDeviceFields()
 {
-    // Шаблон: один прибор. Остальные добавляются так же - addDevice({...}).
-    addDevice({"GPS", TypeDev::GPS, "-", PORT_NAME::GpsPort,
-               SettingsDeviceItem::DeviceStatus::Inactive});
+    auto *layout = ui->subFrameDevices->layout();
+
+    // Первая строка блока — окно передполётной проверки (как «Діагностика» в РХБ)
+    m_preflightField = new SettingsFieldButton(ui->subFrameDevices);
+    m_preflightField->setTextData("Передпольотна перевірка",
+                                  "Стан приладів логера і запуск перевірки (ID01)");
+    m_preflightField->setButtonText("Відкрити");
+    layout->addWidget(m_preflightField);
+    layout->addWidget(createHorizontalLine());
+
+    m_preflight = new PreflightChecklist(this);
+    m_preflight->setWindowFlag(Qt::Window);     // отдельное окно, а не часть страницы
+    m_preflight->hide();
+
+    // Приборы ДРОН-1. Радиомодем — на наземной станции, остальные — на борту
+    // и опрашиваются логгером, поэтому вместо порта — «логер».
+    using DS = SettingsDeviceItem::DeviceStatus;
+    const QString onBoard = QStringLiteral("логер (радіоканал)");
+    addDevice({"Радіомодем",        TypeDev::RADIO,   "-", "—",     DS::Disconnected});
+    addDevice({"GPS",               TypeDev::GPS,     "-", onBoard, DS::Disconnected});
+    addDevice({"LIDAR",             TypeDev::LIDAR,   "-", onBoard, DS::Disconnected});
+    addDevice({"БДБГ-15",           TypeDev::BDBG,    "-", onBoard, DS::Disconnected});
+    addDevice({"Акумулятор логера", TypeDev::BATTERY, "-", onBoard, DS::Disconnected});
+    addDevice({"SD-карта",          TypeDev::SDCARD,  "-", onBoard, DS::Disconnected});
 
     loadSerialNumbersFromFile();
+}
+
+// ---------------------------------------------------------------------------
+//  Состояние приборов от DroneCore
+// ---------------------------------------------------------------------------
+
+void SettingsPage::onLinkStatus(const LinkStatus &status)
+{
+    SettingsDeviceItem *radio = deviceItem(TypeDev::RADIO);
+    if (!radio)
+        return;
+
+    radio->setDevicePort(status.portName.isEmpty() ? QStringLiteral("—") : status.portName);
+    using DS = SettingsDeviceItem::DeviceStatus;
+    switch (status.state) {
+    case LinkState::Closed:  radio->setDeviceStatus(DS::Disconnected, true); break;
+    case LinkState::Waiting: radio->setDeviceStatus(DS::Warning, true);      break;   // порт открыт, логгер молчит
+    case LinkState::Ok:
+    case LinkState::Silent:  radio->setDeviceStatus(DS::Active, true);       break;
+    case LinkState::Lost:    radio->setDeviceStatus(DS::Inactive, true);     break;
+    }
+    if (status.secondsSinceLastPacket >= 0)
+        radio->setLastUpdateTime(status.secondsSinceLastPacket);
+}
+
+void SettingsPage::onLoggerStatus(const LoggerStatus &status)
+{
+    static const QPair<LoggerDevice, TypeDev> map[] = {
+        {LoggerDevice::Gps,     TypeDev::GPS},
+        {LoggerDevice::Lidar,   TypeDev::LIDAR},
+        {LoggerDevice::Bdbg,    TypeDev::BDBG},
+        {LoggerDevice::Battery, TypeDev::BATTERY},
+        {LoggerDevice::Sd,      TypeDev::SDCARD},
+    };
+    using DS = SettingsDeviceItem::DeviceStatus;
+
+    for (const auto &m : map) {
+        SettingsDeviceItem *item = deviceItem(m.second);
+        if (!item)
+            continue;
+        switch (status.devices.value(int(m.first)).check) {
+        case DeviceCheck::Ok:         item->setDeviceStatus(DS::Active, true);       break;
+        case DeviceCheck::Fail:       item->setDeviceStatus(DS::Inactive, true);     break;
+        case DeviceCheck::NotChecked: item->setDeviceStatus(DS::Disconnected, true); break;
+        }
+    }
+    if (status.noSd)
+        if (SettingsDeviceItem *sd = deviceItem(TypeDev::SDCARD))
+            sd->setDeviceStatus(DS::Warning, true);
+
+    m_preflight->onLoggerStatus(status);
+}
+
+void SettingsPage::onRoutePoint(const RoutePoint &point)
+{
+    m_preflight->onRoutePoint(point);
+}
+
+void SettingsPage::onAllowedCommands(const QList<quint8> &ids)
+{
+    m_preflight->onAllowedCommands(ids);
+}
+
+void SettingsPage::openPreflightWindow()
+{
+    m_preflight->show();
+    m_preflight->raise();
+    m_preflight->activateWindow();
 }
 
 SettingsDeviceItem *SettingsPage::addDevice(const SettingsDeviceItem::DeviceData &data)
@@ -89,6 +181,10 @@ QString SettingsPage::deviceKey(TypeDev type)
     case TypeDev::SVNG:   return "SVNG";
     case TypeDev::SRHR:   return "SRHB";   // так было в старом devices.json
     case TypeDev::MKSU:   return "MKSU";
+    case TypeDev::RADIO:   return "RADIO";
+    case TypeDev::LIDAR:   return "LIDAR";
+    case TypeDev::BATTERY: return "BATTERY";
+    case TypeDev::SDCARD:  return "SD";
     }
     return QString();
 }
@@ -183,6 +279,9 @@ void SettingsPage::connections()
     connect(ui->dataSavePeriod,   &SettingsFieldSpinBox::valueChanged, this, &SettingsPage::settingsSavePeriodChanged);
 
     connect(ui->mapSettingsField, &SettingsFieldButton::buttonClicked, this, &SettingsPage::selectMapFile);
+
+    connect(m_preflightField, &SettingsFieldButton::buttonClicked, this, &SettingsPage::openPreflightWindow);
+    connect(m_preflight, &PreflightChecklist::commandRequested, this, &SettingsPage::commandRequested);
 }
 
 QFrame *SettingsPage::createHorizontalLine()
