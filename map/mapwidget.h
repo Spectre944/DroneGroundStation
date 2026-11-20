@@ -32,6 +32,7 @@
 #include "mapcore.h"        // smappoint, smarker, mapcore   (поправьте под ваши заголовки)
 #include "maplayer.h"
 #include "drawinglayer.h"
+#include "doselayers.h"
 #include "coords/coordhandler.h"   // CoordHandler
 #include "settings/settings.h"       // Settings
 #include "utilities/utilities.h"
@@ -46,6 +47,7 @@ class QKeyEvent;
 class QContextMenuEvent;
 class QResizeEvent;
 class QPaintEvent;
+class DoseTestFlight;
 
 extern mapcore m_core;
 
@@ -639,6 +641,7 @@ signals:
     void geometryFinished(GeometryKind kind, const QVector<smappoint> &coords);  // то же + тип фигуры
     void threatClicked(int index);
     void archiveThreatClicked(int index);
+    void measurementClicked(qint64 id, int index);   // клик по точке измерения
     void drawingCanceled();
 
     // Разведка назначается через контекстное меню фигуры (вместо ReconAreaLayer)
@@ -661,6 +664,20 @@ public slots:
     void markSelectedArchiveDanger(int index);
     void activeSearchAreaRecived(QString coordinates);
 
+    // --- данные разведки (Ф5, Ф7, Ф8): подключаются к DroneCore ---
+    //   connect(core, &DroneCore::measurement, map, &MapWidget::onMeasurement);
+    //   connect(core, &DroneCore::gridUpdated, map, &MapWidget::onGridUpdated);
+    void onMeasurement(const Measurement &m);                  // новая точка (живой полёт)
+    void setMeasurements(const QVector<Measurement> &list);    // весь полёт сразу (архив, SessionData)
+    void onGridUpdated(const GridData &grid);                  // тепловая карта
+    void clearDoseData();                                      // точки + сетка
+    void setDoseThresholds(float warn, float alarm);           // CoreSettings::warnLevel / alarmLevel
+    void selectMeasurement(qint64 id);                         // из таблицы: выделить + центрировать
+
+    // ТЕСТ: полёт "змейкой" вокруг центра карты. live = точки приходят по таймеру,
+    // сетка пересчитывается на лету (как будет от ядра); иначе - всё сразу.
+    void loadTestDoseData(bool live = false);
+
     // void onUpdateGpsPositionData(gpsData data);
     // void onUpdateAirmarPositionData(airmarData data);
 
@@ -673,6 +690,7 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    void leaveEvent(QEvent *event) override;
 
 private:
     void setupLayers();
@@ -706,6 +724,13 @@ private:
     ThreatLayer     *threatLayer = nullptr;
     VehicleLayer    *vehicleLayer = nullptr;
     DrawingLayer    *drawing = nullptr;
+
+    // --- доза ---
+    DoseColorScale    doseScale;
+    DoseGridLayer    *doseGridLayer = nullptr;
+    MeasurementLayer *measurementLayer = nullptr;
+    DoseLegendLayer  *doseLegend = nullptr;
+    DoseTestFlight   *testFlight = nullptr;
     // GeometryInfoWidget *geometryInfoWidget = nullptr;
 
     // --- перетаскивание ---

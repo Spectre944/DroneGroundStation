@@ -21,6 +21,7 @@ const char KEY_COORD_TYPE[] = "interface/mapCoordType";   // формат коо
 #include <cstdlib>
 
 #include "modules/notifier/notifier.h"
+#include "dosetestflight.h"
 
 // Глобальные объекты из mapcore.cpp
 extern mapdraw m_draw;
@@ -837,6 +838,8 @@ void MapWidget::setCoordType(CoordType type)
     coordType = type;
     if (geometryLayer)
         geometryLayer->setCoordType(type);
+    if (measurementLayer)
+        measurementLayer->setCoordType(type);
     syncCenter();
 }
 
@@ -866,6 +869,8 @@ void MapWidget::setLeftInset(int px)
     QMargins m = ui->verticalLayout->contentsMargins();
     m.setLeft(qMax(0, px) + defaultLeftMargin);
     ui->verticalLayout->setContentsMargins(m);
+    if (doseLegend)
+        doseLegend->setLeftInset(qMax(0, px));
 }
 
 // ------------------------ СЛОИ ------------------------ //
@@ -903,18 +908,28 @@ void MapWidget::setupLayers()
 {
     store = new GeometryStore(this);
 
-    searchLayer   = new SearchAreaLayer(this);
-    geometryLayer = new GeometryLayer(store, this);
-    archiveLayer  = new ThreatLayer(ThreatLayer::Kind::Archive, this);
-    threatLayer   = new ThreatLayer(ThreatLayer::Kind::Active, this);
-    vehicleLayer  = new VehicleLayer(this);
-    drawing       = new DrawingLayer(this);
+    searchLayer      = new SearchAreaLayer(this);
+    doseGridLayer    = new DoseGridLayer(&doseScale, this);
+    geometryLayer    = new GeometryLayer(store, this);
+    archiveLayer     = new ThreatLayer(ThreatLayer::Kind::Archive, this);
+    measurementLayer = new MeasurementLayer(&doseScale, this);
+    threatLayer      = new ThreatLayer(ThreatLayer::Kind::Active, this);
+    vehicleLayer     = new VehicleLayer(this);
+    doseLegend       = new DoseLegendLayer(&doseScale, measurementLayer, doseGridLayer, this);
+    drawing          = new DrawingLayer(this);
 
+    doseGridLayer->setPointsLayer(measurementLayer);
+
+    // Тепловая карта - под фигурами пользователя (контур области поверх неё),
+    // точки измерений - над архивом, легенда - поверх всего, кроме рисования
     addLayer(searchLayer);
+    addLayer(doseGridLayer);
     addLayer(geometryLayer);
     addLayer(archiveLayer);
+    addLayer(measurementLayer);
     addLayer(threatLayer);
     addLayer(vehicleLayer);
+    addLayer(doseLegend);
     addLayer(drawing);
 
     // geometryInfoWidget = new GeometryInfoWidget(this);
@@ -958,6 +973,17 @@ void MapWidget::setupConnections()
             [this](int index) { emit archiveThreatClicked(index); });
     connect(threatLayer,  &ThreatLayer::centerRequested, this, &MapWidget::centerOnPoint);
     connect(archiveLayer, &ThreatLayer::centerRequested, this, &MapWidget::centerOnPoint);
+
+    // --- точки измерений ---
+    connect(measurementLayer, &MeasurementLayer::measurementSelected, this, &MapWidget::measurementClicked);
+    connect(measurementLayer, &MeasurementLayer::centerRequested, this, [this](double lat, double lon) {
+        smarker m;
+        m.pt.latt = lat;
+        m.pt.longt = lon;
+        m.type = 0;
+        m.is_sel = false;
+        centerOnPoint(m);
+    });
 }
 
 // ------------------------ DRAW ------------------------ //
@@ -1118,6 +1144,13 @@ void MapWidget::resizeEvent(QResizeEvent *event)
     update();
 }
 
+void MapWidget::leaveEvent(QEvent *event)
+{
+    QWidget::leaveEvent(event);
+    for (MapLayer *layer : layers)
+        layer->mouseLeave();
+}
+
 void MapWidget::updateCursor()
 {
     if (isDragging)
@@ -1257,6 +1290,20 @@ void MapWidget::setupFilterMenu()
     addFilter("Маркер дрона",      true, [this](bool on) { vehicleLayer->setVehicleVisible(on); });
     addFilter("Шлях дрона",        true, [this](bool on) { vehicleLayer->setPathVisible(on); });
     addFilter("Область пошуку",    true, [this](bool on) { searchLayer->setVisible(on); });
+
+    filterMenu->addSeparator();
+    addFilter("Точки вимірювань",     true, [this](bool on) { measurementLayer->setVisible(on); });
+    addFilter("Значення біля точок",  true, [this](bool on) { measurementLayer->setLabelsVisible(on); });
+    addFilter("Теплова карта",        true, [this](bool on) { doseGridLayer->setVisible(on); });
+
+#ifndef QT_NO_DEBUG
+    // Только в отладочной сборке: проверка слоёв дозы без ядра
+    filterMenu->addSeparator();
+    QMenu *test = filterMenu->addMenu("Тест: дані дози");
+    test->addAction("Політ одразу",           this, [this] { loadTestDoseData(false); });
+    test->addAction("Політ наживо (таймер)",  this, [this] { loadTestDoseData(true); });
+    test->addAction("Очистити",               this, [this] { clearDoseData(); });
+#endif
 }
 
 void MapWidget::addFilter(const QString &text, bool checked, std::function<void(bool)> setter)
@@ -1373,3 +1420,67 @@ void MapWidget::activeSearchAreaRecived(QString coordinates)
 //         vehicleLayer->setPositionValidation(false);
 //     }
 // }
+
+// ------------------------ ДОЗА: ТОЧКИ И ТЕПЛОВАЯ КАРТА ------------------------ //
+
+void MapWidget::onMeasurement(const Measurement &m)                 { measurementLayer->addMeasurement(m); }
+void MapWidget::setMeasurements(const QVector<Measurement> &list)   { measurementLayer->setMeasurements(list); }
+void MapWidget::onGridUpdated(const GridData &grid)
+{
+    doseGridLayer->setGrid(grid);
+
+    // подписи значений не ставим поверх мишеней горячих точек
+    QVector<QPointF> hot;
+    if (grid.cols > 0 && grid.rows > 0) {
+        const double dLat = (grid.latMax - grid.latMin) / grid.rows;
+        const double dLon = (grid.lonMax - grid.lonMin) / grid.cols;
+        for (int idx : grid.hotspots)
+            hot << dosemap::mercNorm(grid.latMin + (idx / grid.cols + 0.5) * dLat,
+                                     grid.lonMin + (idx % grid.cols + 0.5) * dLon);
+    }
+    measurementLayer->setAvoidPoints(hot);
+}
+void MapWidget::selectMeasurement(qint64 id)                        { measurementLayer->selectAndCenter(id); }
+
+void MapWidget::clearDoseData()
+{
+    if (testFlight)
+        testFlight->stop();
+    measurementLayer->clear();
+    measurementLayer->setAvoidPoints({});
+    doseGridLayer->clear();
+}
+
+void MapWidget::setDoseThresholds(float warn, float alarm)
+{
+    doseScale.setThresholds(warn, alarm);   // слои увидят новую версию шкалы и перестроят кэши
+    update();
+}
+
+void MapWidget::loadTestDoseData(bool live)
+{
+    if (!testFlight) {
+        testFlight = new DoseTestFlight(this);
+        connect(testFlight, &DoseTestFlight::measurement, this, &MapWidget::onMeasurement);
+        connect(testFlight, &DoseTestFlight::gridUpdated, this, &MapWidget::onGridUpdated);
+        connect(testFlight, &DoseTestFlight::finished, this, [] {
+            NotificationManager::showInfo("Тестовий політ завершено");
+        });
+    }
+    clearDoseData();
+
+    const smappoint c = m_core.getview();
+    testFlight->setGridParams(10.0, 50.0, 2.0, doseScale.warn());
+    testFlight->generate(c.latt, c.longt);
+
+    disableTracking();
+    setZoom(qMax(zoom(), 15));
+
+    if (live) {
+        testFlight->startLive(6, 100);      // ~60 точек/с: весь полёт примерно за 40 с
+    } else {
+        setMeasurements(testFlight->measurements());
+        onGridUpdated(testFlight->buildGrid());
+    }
+    NotificationManager::showInfo(QString("Тестовий політ: %1 точок").arg(testFlight->measurements().size()));
+}

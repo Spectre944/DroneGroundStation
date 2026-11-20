@@ -20,6 +20,7 @@ qt_add_executable(DroneGroundStation
     db/sqlite3.c db/sqlite3.h
     map/mapcore.cpp map/mapcore.h map/mapwidget.cpp map/mapwidget.h map/mapwidget.ui
     map/drawinglayer.cpp map/drawinglayer.h map/maplayer.h
+    map/doselayers.cpp map/doselayers.h map/dosetestflight.cpp map/dosetestflight.h
     backend/settings/settings.h backend/settings/settings.cpp
     ui/windows/overlay/overlaylayer.cpp ui/windows/overlay/overlaylayer.h ui/windows/overlay/overlaywidget.cpp ui/windows/overlay/overlaywidget.h
     ui/windows/overlay/overlaycontainer.h ui/windows/overlay/overlaycontainer.cpp
