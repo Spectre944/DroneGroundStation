@@ -83,6 +83,9 @@ void MainWindow::setupMenu()
     QMenuBar *bar = menuBar();
     for (SidePanel *panel : std::as_const(panels))
         bar->addAction(panel->action);
+
+    indicatorPanel = new IndicatorPanel(bar);
+    bar->setCornerWidget(indicatorPanel, Qt::TopRightCorner);
 }
 
 // ---------------------------------------------------------------------------

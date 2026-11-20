@@ -8,6 +8,7 @@
 #include <backend/settings/settings.h>
 
 #include "ui/windows/overlay/overlaycontainer.h"
+#include "ui/modules/indicatorPanel/indicatorpanel.h"
 
 class QAction;
 class MapPicker;
@@ -67,5 +68,6 @@ private:
     SidePanel *databasePanel = nullptr;
     SidePanel *instrumentsPanel = nullptr;
     SidePanel *settingsPanel = nullptr;
+    IndicatorPanel *indicatorPanel = nullptr;
 };
 #endif // MAINWINDOW_H

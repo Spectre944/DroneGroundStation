@@ -42,6 +42,11 @@ qt_add_executable(DroneGroundStation
     map/mappicker.cpp map/mappicker.h
     backend/classes/core_types.cpp backend/classes/core_types.h
     backend/classes/drone_core.cpp backend/classes/drone_core.h
+    ui/modules/indicatorPanel/indicatoritem.cpp ui/modules/indicatorPanel/indicatoritem.h
+    ui/modules/indicatorPanel/indicatorpanel.cpp ui/modules/indicatorPanel/indicatorpanel.h
+    ui/modules/eventLog/eventlog.cpp ui/modules/eventLog/eventlog.h
+    ui/modules/spectrumView/spectrumplot.cpp ui/modules/spectrumView/spectrumplot.h
+    ui/modules/spectrumView/spectrumview.cpp ui/modules/spectrumView/spectrumview.h
 )
 
 target_include_directories(DroneGroundStation

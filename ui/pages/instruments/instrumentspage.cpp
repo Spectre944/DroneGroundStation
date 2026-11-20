@@ -6,6 +6,13 @@ InstrumentsPage::InstrumentsPage(QWidget *parent)
     , ui(new Ui::InstrumentsPage)
 {
     ui->setupUi(this);
+
+    auto spectrumView = new SpectrumView(this);
+    auto eventLog = new EventLog(this);
+
+    addInstrumentWidget(spectrumView);
+    addInstrumentWidget(eventLog);
+
 }
 
 InstrumentsPage::~InstrumentsPage()

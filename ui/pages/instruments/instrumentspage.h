@@ -3,6 +3,9 @@
 
 #include <QWidget>
 
+#include "ui/modules/spectrumView/spectrumview.h"
+#include "ui/modules/eventLog/eventlog.h"
+
 namespace Ui {
 class InstrumentsPage;
 }
