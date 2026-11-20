@@ -13,6 +13,9 @@ SettingsDeviceItem::SettingsDeviceItem(QWidget *parent, const DeviceData &data)
     fillData();
     connections();
 
+    // Сразу показать переданные данные — иначе до первого тика таймера (5 с)
+    // в строке остаются заглушки из .ui («---», «Порт: COM1»)
+    updateUI();
 }
 
 SettingsDeviceItem::~SettingsDeviceItem()

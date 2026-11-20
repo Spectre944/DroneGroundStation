@@ -2,21 +2,27 @@
 #include "ui_mainwindow.h"
 
 #include <QAction>
-#include <QEvent>
+#include <QActionGroup>
+#include <QCloseEvent>
 #include <QMenuBar>
+#include <QSplitter>
+#include <QStackedWidget>
 
 #include "map/mappicker.h"
 #include "ui/pages/recon/reconpage.h"
 #include "ui/pages/database/databasepage.h"
 #include "ui/pages/instruments/instrumentspage.h"
 #include "ui/pages/settings/settingspage.h"
+#include "ui/modules/alarmCenter/alarmdrawer.h"
 
 namespace {
 // Путь к карте, если в настройках ещё ничего не выбрано (как было захардкожено раньше)
 const char DEFAULT_MAP_FILE[] = "D://Tiles//tiles_ukr_9-16.db";
 
-constexpr int    PANEL_MARGIN = 10;          // отступ панелей от краёв карты
-constexpr qreal  PANEL_WIDTH  = 1.0 / 3.0;   // доля ширины карты под боковую страницу
+const char KEY_SPLITTER[] = "ui/mainSplitter";      // ширины [страница, карта] между запусками
+
+constexpr int PAGE_MIN_WIDTH     = 360;   // уже — поля страниц начинают сжиматься
+constexpr int PAGE_DEFAULT_WIDTH = 480;
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -28,13 +34,19 @@ MainWindow::MainWindow(QWidget *parent)
     setupMap();
     setupPages();
     setupMenu();
+    setupAlarms();
+    restoreSplitter();
 }
 
 MainWindow::~MainWindow()
 {
-    qDeleteAll(panels);
-    panels.clear();
     delete ui;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    saveSplitter();
+    QMainWindow::closeEvent(event);
 }
 
 // ---------------------------------------------------------------------------
@@ -49,7 +61,20 @@ void MainWindow::setupMap()
         mapFile = DEFAULT_MAP_FILE;
     mapWidget->setMapFile(mapFile);
 
-    ui->horizontalLayout->addWidget(mapWidget);
+    // Страницы слева, карта справа, между ними — перетаскиваемый разделитель (как в РХБ)
+    pageStack = new QStackedWidget(this);
+    pageStack->setMinimumWidth(PAGE_MIN_WIDTH);
+
+    mainSplitter = new QSplitter(Qt::Horizontal, this);
+    mainSplitter->addWidget(pageStack);
+    mainSplitter->addWidget(mapWidget);
+    mainSplitter->setStretchFactor(0, 0);       // при изменении окна растёт карта, страница сохраняет ширину
+    mainSplitter->setStretchFactor(1, 1);
+    mainSplitter->setCollapsible(0, false);     // сворачиваем сами — через меню
+    mainSplitter->setCollapsible(1, false);
+    mainSplitter->setHandleWidth(6);
+
+    ui->horizontalLayout->addWidget(mainSplitter);
 
     // "Выбрать на карте" для полей координат (TextEditCoordinates и т.п.)
     mapPicker = new MapPicker(mapWidget, this);
@@ -57,15 +82,18 @@ void MainWindow::setupMap()
 
 void MainWindow::setupPages()
 {
-    reconPage    = new ReconPage();
-    databasePage = new DatabasePage();
+    reconPage       = new ReconPage();
+    databasePage    = new DatabasePage();
     instrumentsPage = new InstrumentsPage();
-    settingsPage = new SettingsPage();
+    settingsPage    = new SettingsPage();
 
-    reconPanel    = addSidePanel("Розвідка",     reconPage);
-    databasePanel = addSidePanel("База даних",   databasePage);
-    instrumentsPanel = addSidePanel("Прилади",   instrumentsPage);
-    settingsPanel = addSidePanel("Налаштування", settingsPage);
+    pageActions = new QActionGroup(this);
+    pageActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
+
+    addPage("Розвідка",     reconPage);
+    addPage("База даних",   databasePage);
+    addPage("Прилади",      instrumentsPage);
+    addPage("Налаштування", settingsPage);
 
     // --- связи страниц с картой ---
     connect(settingsPage, &SettingsPage::mapFileSelected, mapWidget, &MapWidget::setMapFile);
@@ -81,89 +109,99 @@ void MainWindow::setupPages()
 void MainWindow::setupMenu()
 {
     QMenuBar *bar = menuBar();
-    for (SidePanel *panel : std::as_const(panels))
-        bar->addAction(panel->action);
+    for (const Page &page : std::as_const(pages))
+        bar->addAction(page.action);
 
     indicatorPanel = new IndicatorPanel(bar);
     bar->setCornerWidget(indicatorPanel, Qt::TopRightCorner);
 }
 
-// ---------------------------------------------------------------------------
-//  Боковые страницы
-// ---------------------------------------------------------------------------
-
-MainWindow::SidePanel *MainWindow::addSidePanel(const QString &title, QWidget *page)
+void MainWindow::setupAlarms()
 {
-    auto *panel = new SidePanel;
-    panel->page = page;
+    // Шторка тревог у правого края карты
+    alarmDrawer = new AlarmDrawer(mapWidget);
 
-    panel->overlay = new OverlayContainer(mapWidget);
-    panel->overlay->setContentWidget(page);
-    panel->overlay->setTitle(title);                                  // шапка с кнопкой ✕
-    panel->overlay->setAnchor(Qt::AlignLeft | Qt::AlignTop);
-    panel->overlay->setRelativeSize(PANEL_WIDTH, 0);                  // 1/3 ширины ...
-    panel->overlay->setStretch(Qt::Vertical);                         // ... на всю высоту
-    panel->overlay->setOuterMargins({PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN});
-    panel->overlay->setContentMargins(10, 0, 10, 10);
-    panel->overlay->hide();
-    panel->overlay->installEventFilter(this);   // следим за показом/размером -> updateMapInsets()
-
-    panel->action = new QAction(title, this);
-    panel->action->setCheckable(true);
-
-    connect(panel->action, &QAction::triggered, this, [this, panel] { togglePanel(panel); });
-    // ✕ в шапке закрывает страницу - снимаем галочку с пункта меню
-    connect(panel->overlay, &OverlayContainer::closed, this, [panel] { panel->action->setChecked(false); });
-
-    panels.append(panel);
-    return panel;
+    // TODO (шаг 3, заглушка ядра): подключить к DroneCore
+    //   connect(core, &DroneCore::alarm,             alarmDrawer->center(), &AlarmCenter::onAlarm);
+    //   connect(core, &DroneCore::alarmAcknowledged, alarmDrawer->center(), &AlarmCenter::onAlarmAcknowledged);
+    //   connect(alarmDrawer->center(), &AlarmCenter::acknowledgeRequested, core, &DroneCore::acknowledgeAlarm);
+    //   connect(alarmDrawer->center(), &AlarmCenter::showOnMapRequested, mapWidget, ...центрировать карту...);
 }
 
-void MainWindow::togglePanel(SidePanel *panel)
+// ---------------------------------------------------------------------------
+//  Страницы
+// ---------------------------------------------------------------------------
+
+void MainWindow::addPage(const QString &title, QWidget *widget)
 {
-    if (panel->overlay->isVisible())
-        panel->overlay->hideOverlay();
+    const int index = pageStack->addWidget(widget);
+
+    Page page;
+    page.widget = widget;
+    page.action = new QAction(title, this);
+    page.action->setCheckable(true);
+    pageActions->addAction(page.action);
+    connect(page.action, &QAction::triggered, this, [this, index] { togglePage(index); });
+
+    pages.append(page);
+}
+
+void MainWindow::togglePage(int index)
+{
+    // Повторное нажатие на открытую страницу сворачивает стек — карта на всю ширину
+    if (pageStack->isVisible() && pageStack->currentIndex() == index)
+        hidePages();
     else
-        showPanel(panel);
+        showPage(index);
 }
 
-// Слева одновременно открыта только одна страница
-void MainWindow::showPanel(SidePanel *panel)
+void MainWindow::showPage(int index)
 {
-    for (SidePanel *other : std::as_const(panels))
-        if (other != panel)
-            other->overlay->hideOverlay();
+    pageStack->setCurrentIndex(index);
+    pages.at(index).action->setChecked(true);
 
-    panel->overlay->showOverlay();
-    panel->action->setChecked(true);
-}
-
-// Открытая слева страница не должна закрывать кнопки карты
-void MainWindow::updateMapInsets()
-{
-    int inset = 0;
-    for (SidePanel *panel : std::as_const(panels))
-        if (panel->overlay->isVisible())
-            inset = qMax(inset, panel->overlay->geometry().right() + 1);
-    mapWidget->setLeftInset(inset);
-}
-
-bool MainWindow::eventFilter(QObject *watched, QEvent *event)
-{
-    switch (event->type()) {
-    case QEvent::Show:
-    case QEvent::Hide:
-    case QEvent::Resize:
-    case QEvent::Move:
-        for (SidePanel *panel : std::as_const(panels)) {
-            if (watched == panel->overlay) {
-                updateMapInsets();
-                break;
-            }
-        }
-        break;
-    default:
-        break;
+    if (!pageStack->isVisible()) {
+        pageStack->show();
+        if (lastSizes.size() == 2 && lastSizes.at(0) > 0)
+            mainSplitter->setSizes(lastSizes);
     }
-    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::hidePages()
+{
+    if (pageStack->isVisible())
+        lastSizes = mainSplitter->sizes();
+    pageStack->hide();
+    for (const Page &page : std::as_const(pages))
+        page.action->setChecked(false);
+}
+
+// ---------------------------------------------------------------------------
+//  Ширина страницы между запусками
+// ---------------------------------------------------------------------------
+
+void MainWindow::restoreSplitter()
+{
+    // Хранится как «ширина страницы,ширина карты», например «480,1200»
+    const QStringList parts = Settings::instance().getValue(KEY_SPLITTER).toString().split(',');
+    int page = PAGE_DEFAULT_WIDTH, map = 1000;
+    if (parts.size() == 2) {
+        page = qMax(PAGE_MIN_WIDTH, parts.at(0).toInt());
+        map  = qMax(1, parts.at(1).toInt());
+    }
+    lastSizes = {page, map};
+    mainSplitter->setSizes(lastSizes);
+    hidePages();    // при запуске — только карта, как было с боковыми панелями
+}
+
+void MainWindow::saveSplitter()
+{
+    // Ширина открытой страницы; если стек свёрнут — последней открытой
+    if (pageStack->isVisible())
+        lastSizes = mainSplitter->sizes();
+    if (lastSizes.size() != 2)
+        return;
+
+    Settings::instance().setValue(KEY_SPLITTER, QStringLiteral("%1,%2").arg(lastSizes.at(0)).arg(lastSizes.at(1)));
+    Settings::instance().saveSettings();
 }

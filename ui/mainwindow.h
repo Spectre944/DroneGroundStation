@@ -7,15 +7,18 @@
 #include "map/mapwidget.h"
 #include <backend/settings/settings.h>
 
-#include "ui/windows/overlay/overlaycontainer.h"
 #include "ui/modules/indicatorPanel/indicatorpanel.h"
 
 class QAction;
+class QActionGroup;
+class QSplitter;
+class QStackedWidget;
 class MapPicker;
 class ReconPage;
 class DatabasePage;
 class InstrumentsPage;
 class SettingsPage;
+class AlarmDrawer;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -32,42 +35,46 @@ public:
     ~MainWindow();
 
 protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
-    // Боковая панель поверх карты: левая 1/3 окна на всю высоту.
-    // Страница остаётся обычным виджетом - при необходимости её легко
-    // перенести в QStackedWidget, ничего не меняя внутри неё.
-    struct SidePanel {
-        QAction          *action  = nullptr;   // пункт меню (checkable)
-        OverlayContainer *overlay = nullptr;
-        QWidget          *page    = nullptr;
+    // Страница слева от карты (как в РХБ): QSplitter [ QStackedWidget | карта ].
+    // Пункт меню переключает страницу; повторное нажатие на открытую — сворачивает стек.
+    struct Page {
+        QAction *action = nullptr;  // пункт меню (checkable)
+        QWidget *widget = nullptr;
     };
 
     void setupMap();
     void setupPages();
     void setupMenu();
+    void setupAlarms();
 
-    SidePanel *addSidePanel(const QString &title, QWidget *page);
-    void togglePanel(SidePanel *panel);
-    void showPanel(SidePanel *panel);
-    void updateMapInsets();
+    void addPage(const QString &title, QWidget *widget);
+    void togglePage(int index);
+    void showPage(int index);
+    void hidePages();
+
+    void restoreSplitter();
+    void saveSplitter();
 
     Ui::MainWindow *ui;
 
     MapWidget *mapWidget = nullptr;
     MapPicker *mapPicker = nullptr;
 
-    ReconPage    *reconPage    = nullptr;
-    DatabasePage *databasePage = nullptr;
-    InstrumentsPage *instrumentsPage = nullptr;
-    SettingsPage *settingsPage = nullptr;
+    QSplitter      *mainSplitter = nullptr;
+    QStackedWidget *pageStack    = nullptr;
+    QActionGroup   *pageActions  = nullptr;
+    QList<Page>     pages;
+    QList<int>      lastSizes;              // ширины до сворачивания стека
 
-    QList<SidePanel *> panels;
-    SidePanel *reconPanel    = nullptr;
-    SidePanel *databasePanel = nullptr;
-    SidePanel *instrumentsPanel = nullptr;
-    SidePanel *settingsPanel = nullptr;
+    ReconPage       *reconPage       = nullptr;
+    DatabasePage    *databasePage    = nullptr;
+    InstrumentsPage *instrumentsPage = nullptr;
+    SettingsPage    *settingsPage    = nullptr;
+
     IndicatorPanel *indicatorPanel = nullptr;
+    AlarmDrawer    *alarmDrawer    = nullptr;
 };
 #endif // MAINWINDOW_H
