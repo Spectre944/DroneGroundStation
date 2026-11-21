@@ -2,6 +2,10 @@
 #include "ui_mapwidget.h"
 
 #include <QComboBox>
+#include <QDir>
+#include <QFile>
+#include <QPainter>
+#include <QSvgRenderer>
 
 namespace {
 const char KEY_COORD_TYPE[] = "interface/mapCoordType";   // формат координат в панели над картой
@@ -175,6 +179,49 @@ smappoint GeometryLayer::anchorOf(const GeometryItem &it) const
     return a;
 }
 
+QVector<smappoint> mapgeo::simplifyPolygon(const QVector<smappoint> &poly, int maxPoints)
+{
+    if (maxPoints < 3 || poly.size() <= maxPoints)
+        return poly;
+
+    // локальная плоская система в метрах
+    const double lat0 = qDegreesToRadians(poly.first().latt);
+    const double kx = 111320.0 * std::cos(lat0), ky = 111320.0;
+    QVector<QPointF> xy;
+    xy.reserve(poly.size());
+    for (const smappoint &p : poly)
+        xy << QPointF(p.longt * kx, p.latt * ky);
+
+    QVector<int> idx(poly.size());
+    for (int i = 0; i < idx.size(); ++i)
+        idx[i] = i;
+
+    auto tri = [&](int k) {
+        const int n = idx.size();
+        const QPointF &a = xy[idx[(k + n - 1) % n]], &b = xy[idx[k]], &c = xy[idx[(k + 1) % n]];
+        return std::fabs((b.x() - a.x()) * (c.y() - a.y()) - (c.x() - a.x()) * (b.y() - a.y())) / 2.0;
+    };
+
+    while (idx.size() > maxPoints) {
+        int best = 0;
+        double bestA = tri(0);
+        for (int k = 1; k < idx.size(); ++k) {
+            const double a = tri(k);
+            if (a < bestA) {
+                bestA = a;
+                best = k;
+            }
+        }
+        idx.removeAt(best);
+    }
+
+    QVector<smappoint> out;
+    out.reserve(idx.size());
+    for (int i : idx)
+        out << poly[i];
+    return out;
+}
+
 void GeometryLayer::refreshSummary()
 {
     m_summary = InfoBox();
@@ -192,6 +239,9 @@ void GeometryLayer::refreshSummary()
         m_summary.lines << QString("Довжина: %1 км").arg(mapgeo::lengthM(it->points, false) / 1000.0, 0, 'f', 2);
     }
     m_summary.lines << QString("Точок: %1").arg(it->points.size());
+    if (poly && it->points.size() > CoreConst::AreaMaxVertices)
+        m_summary.lines << QString("⚠ Для розвідки — не більше %1 точок (ПКМ → «Спростити»)")
+                               .arg(CoreConst::AreaMaxVertices);
     if (it->role == GeometryRole::Recon)
         m_summary.lines << (poly ? "★ Область розвідки" : "★ Маршрут розвідки");
 
@@ -331,16 +381,52 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
 
     menu.addAction("Скопіювати координати", this, [this, id] { copyCoordinates(id); });
 
+    // Логер принимает область из 3–20 вершин (ID04). Рисовать больше не запрещаем,
+    // но назначить такую область разведкой можно только через упрощение - без перерисовки.
+    const int maxV = CoreConst::AreaMaxVertices;
+    const bool tooMany = poly && it->points.size() > maxV;
+
     if (it->role == GeometryRole::Recon) {
         menu.addAction("Зняти призначення розвідки", this, [this] { m_store->clearRecon(); });
+    } else if (tooMany) {
+        menu.addAction(QString("Спростити до %1 точок і призначити областю розвідки").arg(maxV),
+                       this, [this, id] {
+                           simplify(id);
+                           m_store->assignRecon(id);
+                       });
     } else {
         menu.addAction(poly ? "Призначити областю розвідки" : "Призначити маршрутом розвідки",
                        this, [this, id] { m_store->assignRecon(id); });
     }
+    if (tooMany)
+        menu.addAction(QString("Спростити до %1 точок").arg(maxV), this, [this, id] { simplify(id); });
 
     menu.addSeparator();
     menu.addAction(poly ? "Видалити полігон" : "Видалити лінію",
                    this, [this, id] { m_store->remove(id); });
+}
+
+void GeometryLayer::simplify(int id)
+{
+    const GeometryItem *it = m_store->find(id);
+    if (!it || it->kind != GeometryKind::Polygon)
+        return;
+    const int before = it->points.size();
+    const double areaBefore = mapgeo::areaKm2(it->points);
+    const QVector<smappoint> pts = mapgeo::simplifyPolygon(it->points, CoreConst::AreaMaxVertices);
+    if (pts.size() == before)
+        return;
+
+    m_store->setPoints(id, pts);
+    refreshSummary();
+    emit updateRequested();
+
+    const double areaAfter = mapgeo::areaKm2(pts);
+    const double diff = areaBefore > 0 ? std::fabs(areaAfter - areaBefore) / areaBefore * 100.0 : 0.0;
+    NotificationManager::showSuccess(
+        QString("Точок: %1 → %2, площа змінилась на %3%")
+            .arg(before).arg(pts.size()).arg(diff, 0, 'f', diff < 1 ? 2 : 1),
+        "Полігон спрощено");
 }
 
 void GeometryLayer::copyCoordinates(int id) const
@@ -396,9 +482,13 @@ void GeometryLayer::drawItem(QPainter &p, const GeometryItem &it)
 
     // Метка "разведка" - только если фигура не выделена (у выделенной это есть в плашке)
     if (recon && it.id != m_selectedId) {
+        const bool tooMany = it.kind == GeometryKind::Polygon && it.points.size() > CoreConst::AreaMaxVertices;
         drawInfoBox(p, mapgeo::toScreen(anchorOf(it)),
                     it.kind == GeometryKind::Polygon ? "Область розвідки" : "Маршрут розвідки",
-                    {}, m_reconColor, p.viewport());
+                    tooMany ? QStringList{ QString("⚠ %1 точок, логер приймає до %2")
+                                               .arg(it.points.size()).arg(CoreConst::AreaMaxVertices) }
+                            : QStringList{},
+                    m_reconColor, p.viewport());
     }
 }
 
@@ -919,6 +1009,7 @@ void MapWidget::setupLayers()
     drawing          = new DrawingLayer(this);
 
     doseGridLayer->setPointsLayer(measurementLayer);
+    drawing->setPolygonVertexLimit(CoreConst::AreaMaxVertices);
 
     // Тепловая карта - под фигурами пользователя (контур области поверх неё),
     // точки измерений - над архивом, легенда - поверх всего, кроме рисования
@@ -1179,7 +1270,6 @@ void MapWidget::setupButtons()
 
     // Управление картой - правая колонка
     btnFilter   = ui->pushButtonLayerMenu;
-    btnGeomList = ui->pushButtonOpenLayerGeometry;
     btnTrack    = ui->pushButtonAutoTrack;
     btnZoomIn   = ui->pushButtonMapZoomIn;
     btnZoomOut  = ui->pushButtonMapZoomOut;
@@ -1213,41 +1303,167 @@ void MapWidget::setupButtons()
             setCenter(vehicleLayer->getVehiclePosition());
     });
 
-    // connect(btnGeomList, &QPushButton::clicked, this, [this] {
-    //     geometryInfoWidget->show();
-    //     geometryInfoWidget->raise();
-    //     geometryInfoWidget->activateWindow();
-    // });
 
     connect(ui->currentCoordLineEdit, &LineEditDisplayCoordinates::doubleClicked,
             this, &MapWidget::copyCenterCoordinates);
     setupCoordTypeBox();
 
-    // На Windows 11 стиль рисует QPushButton полупрозрачными - поверх карты их
-    // почти не видно. Задаём непрозрачный фон только кнопкам/панели карты
-    // (селектор ">" - прямые дети MapWidget, страницы-оверлеи не затрагиваются).
-    setStyleSheet(R"(
-        MapWidget > QPushButton {
-            background-color: rgb(250, 250, 250);
-            border: 1px solid rgb(170, 170, 170);
-            border-radius: 4px;
-            min-width: 35px; min-height: 35px;
-        }
-        MapWidget > QPushButton:hover    { background-color: rgb(229, 241, 251); border-color: rgb(0, 120, 215); }
-        MapWidget > QPushButton:pressed  { background-color: rgb(204, 228, 247); }
-        MapWidget > QPushButton:checked  { background-color: rgb(204, 228, 247); border-color: rgb(0, 120, 215); }
-        MapWidget > QPushButton::menu-indicator {
-            subcontrol-origin: padding; subcontrol-position: right bottom;
-            position: relative; right: 2px; bottom: 2px; width: 7px; height: 7px;
-        }
-        #coordFrame {
-            background-color: rgb(250, 250, 250);
-            border: 1px solid rgb(170, 170, 170);
-            border-radius: 4px;
-        }
-    )");
+    applyMapTheme();
 
     onDrawingModeChanged(DrawingLayer::Mode::None);
+}
+
+// ------------------- ТЕМА КНОПОК КАРТЫ ------------------- //
+
+namespace {
+
+// SVG с currentColor / чёрным контуром / белой заливкой -> иконка нужных цветов
+QPixmap themedSvg(const QString &path, const QColor &fg, const QColor &bg, int px, qreal dpr)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return QPixmap();
+    QByteArray svg = f.readAll();
+    const QByteArray fgName = fg.name().toLatin1(), bgName = bg.name().toLatin1();
+    svg.replace("currentColor", fgName);
+    svg.replace("stroke=\"black\"", "stroke=\"" + fgName + "\"");
+    svg.replace("fill=\"black\"", "fill=\"" + fgName + "\"");
+    svg.replace("fill=\"white\"", "fill=\"" + bgName + "\"");
+
+    QSvgRenderer r(svg);
+    QPixmap pm(QSize(px, px) * dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing);
+    r.render(&p);
+    p.end();
+    pm.setDevicePixelRatio(dpr);
+    return pm;
+}
+
+} // namespace
+
+// Кнопки поверх карты должны быть непрозрачными (стиль Windows 11 рисует их
+// полупрозрачными - на карте их не видно), но при этом следовать теме Windows.
+// Поэтому цвета берём не из palette(button) (там может быть альфа), а выбираем
+// светлый или тёмный набор по яркости фона окна. Иконки перекрашиваем под текст.
+void MapWidget::applyMapTheme()
+{
+    // Палитра приложения, а не виджета: у MapWidget своя таблица стилей, и его
+    // собственная палитра при смене темы Windows может не обновиться
+    const QPalette pal = QApplication::palette();
+    QColor win = pal.color(QPalette::Window);
+    win.setAlpha(255);
+    const bool dark = win.lightness() < 128;
+    QColor accent = pal.color(QPalette::Highlight);
+    accent.setAlpha(255);
+    if (accent.saturation() < 40)
+        accent = dark ? QColor(0x4C, 0xA3, 0xF0) : QColor(0x00, 0x78, 0xD7);
+
+    const QString key = QStringLiteral("%1|%2").arg(dark).arg(accent.name());
+    if (key == themeKey)
+        return;
+    themeKey = key;
+
+    struct C { QColor bg, field, border, hover, pressed, checked, fg, muted; };
+    const C c = dark
+        ? C{ QColor(0x2B, 0x2D, 0x31), QColor(0x1F, 0x21, 0x25), QColor(0x4A, 0x4E, 0x55),
+             QColor(0x36, 0x3A, 0x40), QColor(0x24, 0x38, 0x4E), QColor(0x1E, 0x3A, 0x5A),
+             QColor(0xE8, 0xEA, 0xED), QColor(0x7D, 0x84, 0x8C) }
+        : C{ QColor(0xFA, 0xFA, 0xFA), QColor(0xFF, 0xFF, 0xFF), QColor(0xAA, 0xAA, 0xAA),
+             QColor(0xE5, 0xF1, 0xFB), QColor(0xCC, 0xE4, 0xF7), QColor(0xCC, 0xE4, 0xF7),
+             QColor(0x1F, 0x23, 0x28), QColor(0x9A, 0xA0, 0xA6) };
+
+    // Стрелка выпадающего списка - перекрашенный SVG во временном файле
+    // (в таблице стилей картинку можно задать только путём)
+    const QString arrowPath = QDir::temp().filePath(
+        QStringLiteral("dgs_chevron_%1.png").arg(c.fg.name().mid(1)));
+    if (!QFile::exists(arrowPath))
+        themedSvg(QStringLiteral(":/icons/svg/bs5/chevron-down.svg"), c.fg, c.field, 20, 1.0).save(arrowPath);
+
+    setStyleSheet(QStringLiteral(R"(
+        MapWidget > QPushButton {
+            background-color: %1; color: %7;
+            border: 1px solid %3; border-radius: 6px;
+            min-width: 35px; min-height: 35px;
+        }
+        MapWidget > QPushButton:hover    { background-color: %4; border-color: %9; }
+        MapWidget > QPushButton:pressed  { background-color: %5; }
+        MapWidget > QPushButton:checked  { background-color: %6; border-color: %9; }
+        MapWidget > QPushButton:disabled { color: %8; }
+        MapWidget > QPushButton::menu-indicator { image: none; width: 0px; }
+        #coordFrame {
+            background-color: %1;
+            border: 1px solid %3; border-radius: 6px;
+        }
+        #coordFrame QLineEdit {
+            background: transparent; border: none; color: %7;
+            selection-background-color: %9; selection-color: white;
+        }
+        #coordFrame QComboBox {
+            background-color: %2; color: %7;
+            border: 1px solid %3; border-radius: 4px;
+            padding: 2px 22px 2px 6px;
+        }
+        #coordFrame QComboBox:hover { border-color: %9; }
+        #coordFrame QComboBox::drop-down { border: none; width: 20px; }
+        #coordFrame QComboBox::down-arrow { image: url(%10); width: 10px; height: 10px; }
+        #coordFrame QComboBox QAbstractItemView {
+            background-color: %2; color: %7; border: 1px solid %3; outline: 0;
+            selection-background-color: %9; selection-color: white;
+        }
+    )")
+        .arg(c.bg.name(), c.field.name(), c.border.name(), c.hover.name(), c.pressed.name(),
+             c.checked.name(), c.fg.name(), c.muted.name(), accent.name())
+        .arg(QDir::fromNativeSeparators(arrowPath)));
+
+    // Иконки: обычная - цветом текста, нажатая - акцентом, недоступная - приглушённо
+    const struct { QPushButton *btn; const char *svg; } icons[] = {
+        { btnFilter,  ":/icons/svg/bs5/layers-half.svg" },
+        { btnLine,    ":/icons/svg/custom/line.svg" },
+        { btnPolygon, ":/icons/svg/custom/ReconAreaMode.svg" },
+        { btnFinish,  ":/icons/svg/bs5/check-lg.svg" },
+        { btnUndo,    ":/icons/svg/bs5/arrow-counterclockwise.svg" },
+        { btnCancel,  ":/icons/svg/bs5/x-lg.svg" },
+        { btnClear,   ":/icons/svg/bs5/trash3.svg" },
+        { btnTrack,   ":/icons/svg/custom/GPSTrack.svg" },
+        { btnZoomIn,  ":/icons/svg/bs5/plus.svg" },
+        { btnZoomOut, ":/icons/svg/bs5/dash.svg" },
+    };
+    const qreal dpr = devicePixelRatioF();
+    for (const auto &i : icons) {
+        if (!i.btn)
+            continue;
+        const int px = qMax(16, i.btn->iconSize().width());
+        const QString path = QString::fromLatin1(i.svg);
+        QIcon icon;
+        icon.addPixmap(themedSvg(path, c.fg, c.bg, px, dpr), QIcon::Normal, QIcon::Off);
+        icon.addPixmap(themedSvg(path, accent, c.checked, px, dpr), QIcon::Normal, QIcon::On);
+        icon.addPixmap(themedSvg(path, accent, c.hover, px, dpr), QIcon::Active, QIcon::Off);
+        icon.addPixmap(themedSvg(path, accent, c.checked, px, dpr), QIcon::Active, QIcon::On);
+        icon.addPixmap(themedSvg(path, c.muted, c.bg, px, dpr), QIcon::Disabled, QIcon::Off);
+        i.btn->setIcon(icon);
+    }
+}
+
+bool MapWidget::event(QEvent *event)
+{
+    const bool res = QWidget::event(event);
+    // Смена темы Windows: ThemeChange / ApplicationPaletteChange / PaletteChange.
+    // StyleChange приходит и от нашего же setStyleSheet - повторно тема не
+    // применяется (сверяется themeKey), так что зацикливания нет.
+    switch (event->type()) {
+    case QEvent::ThemeChange:
+    case QEvent::ApplicationPaletteChange:
+    case QEvent::PaletteChange:
+    case QEvent::StyleChange:
+        if (ui)
+            QMetaObject::invokeMethod(this, &MapWidget::applyMapTheme, Qt::QueuedConnection);
+        break;
+    default:
+        break;
+    }
+    return res;
 }
 
 void MapWidget::onDrawingModeChanged(DrawingLayer::Mode mode)
@@ -1345,8 +1561,14 @@ void MapWidget::syncGeometryList()
 
 void MapWidget::onReconChanged(int id)
 {
-    if (const GeometryItem *it = store->find(id))
+    if (const GeometryItem *it = store->find(id)) {
+        if (it->kind == GeometryKind::Polygon && it->points.size() > CoreConst::AreaMaxVertices)
+            NotificationManager::showWarning(
+                QString("В області %1 точок, логер приймає до %2. ПКМ по області → «Спростити до %2 точок».")
+                    .arg(it->points.size()).arg(CoreConst::AreaMaxVertices),
+                "Забагато точок");
         emit reconAssigned(it->points, it->kind == GeometryKind::Line);
+    }
     else
         emit reconCleared();
 }

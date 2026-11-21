@@ -194,6 +194,11 @@ inline double pixelsPerMeter(const smappoint &at)
     return QLineF(toScreen(at), toScreen(b)).length() / m;
 }
 
+// Упрощение замкнутого полигона до maxPoints вершин (алгоритм Висвалингама–Уайетта):
+// по одной убирается вершина, дающая наименьший треугольник с соседями, - форма
+// и площадь меняются минимально. Если вершин и так не больше - возвращается как есть.
+QVector<smappoint> simplifyPolygon(const QVector<smappoint> &poly, int maxPoints);
+
 } // namespace mapgeo
 
 // ======================================================================
@@ -327,6 +332,20 @@ public:
         emit changed();
     }
 
+    // Заменить вершины фигуры (упрощение). Если это разведка - потребители узнают
+    // через reconChanged, как при новом назначении.
+    bool setPoints(int id, const QVector<smappoint> &pts)
+    {
+        GeometryItem *it = findMutable(id);
+        if (!it)
+            return false;
+        it->points = pts;
+        if (it->role == GeometryRole::Recon)
+            emit reconChanged(id);
+        emit changed();
+        return true;
+    }
+
     void clearRecon()
     {
         GeometryItem *cur = findMutable(reconId());
@@ -407,6 +426,7 @@ private:
     smappoint anchorOf(const GeometryItem &it) const;
     void refreshSummary();
     void copyCoordinates(int id) const;
+    void simplify(int id);            // до CoreConst::AreaMaxVertices вершин
 
     void drawItem(QPainter &p, const GeometryItem &it);
     void drawSelection(QPainter &p);
@@ -691,8 +711,10 @@ protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void leaveEvent(QEvent *event) override;
+    bool event(QEvent *event) override;
 
 private:
+    void applyMapTheme();         // цвета кнопок/рамки координат под светлую или тёмную тему
     void setupLayers();
     void setupConnections();
     void setupButtons();          // кнопки из mapwidget.ui (раскладка как в прошлом проекте)
@@ -749,8 +771,9 @@ private:
 
     // --- кнопки управления картой (из ui) ---
     QPushButton *btnZoomIn = nullptr, *btnZoomOut = nullptr, *btnTrack = nullptr,
-                *btnGeomList = nullptr, *btnFilter = nullptr;
+                *btnFilter = nullptr;
     QMenu *filterMenu = nullptr;
+    QString themeKey;             // какая тема применена (чтобы не зациклиться на StyleChange)
 
     // --- машина ---
     bool trackMarkerMode = false;
