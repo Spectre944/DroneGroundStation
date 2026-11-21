@@ -48,32 +48,6 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="pushButtonOpenLayerGeometry">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>35</width>
-           <height>35</height>
-          </size>
-         </property>
-         <property name="toolTip">
-          <string>Управління полігонами та лініями</string>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset resource="../assets/res.qrc">
-           <normaloff>:/icons/svg/bs5/list.svg</normaloff>:/icons/svg/bs5/list.svg</iconset>
-         </property>
-        </widget>
-       </item>
-       <item>
         <spacer name="verticalSpacer_4">
          <property name="orientation">
           <enum>Qt::Orientation::Vertical</enum>

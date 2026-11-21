@@ -28,6 +28,10 @@ public:
     void clear();             // сбросить недорисованную фигуру (готовые хранятся в GeometryStore)
 
     bool isActive() const { return m_mode != Mode::None; }
+
+    // Мягкий лимит вершин полигона (область разведки ID04 - до 20): рисовать больше
+    // можно, но счётчик у курсора заранее предупреждает. 0 - без лимита.
+    void setPolygonVertexLimit(int n) { m_vertexLimit = n; }
     Mode mode() const { return m_mode; }
 
 
@@ -54,6 +58,8 @@ private:
     void setMode(Mode m);
     void drawCurrent(QPainter &p);
     static void drawPoint(QPainter &p, const QPoint &pt, bool highlight = false);
+    void drawCounter(QPainter &p, const QPoint &anchor);
+    int m_vertexLimit = 0;
 };
 
 Q_DECLARE_METATYPE(DrawingLayer::Mode)
