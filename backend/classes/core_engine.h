@@ -5,7 +5,7 @@
     @file  core_engine.h
     @brief Настоящее ядро: цепочка DroneLink → MessageParser → LoggerState,
            DroneCommands, ReconArea, SessionStore, SpectrumCollector, AlarmManager,
-           SdImporter, DoseGrid, DoseCorrection —
+           SdImporter, DoseGrid, DoseCorrection, CsvExporter —
            соединённые по схеме
            «Классов ядра», разд. 4.
 
@@ -17,8 +17,6 @@
     @note  Всё принятое и отправленное записывается в базу полётов (SessionStore)
            в момент события. Номер записи в базе (id) попадает в измерение и событие,
            которые уходят в интерфейс.
-    @note  Пока без экспорта CSV —
-           они подключаются на следующих шагах.
 */
 
 #include <QObject>
@@ -66,6 +64,7 @@ public:
     void requestTimeSeries(qint64 sessionId);           ///< → timeSeriesReady
     void acknowledgeAlarm(qint64 alarmId);              ///< оператор увидел тревогу → база, alarmAcknowledged
     void importSd(const QStringList &files);            ///< файлы SD → сверка, база; ход — sdProgress, итог — sdImported
+    void exportCsv(qint64 sessionId, const QString &folder, quint32 parts);    ///< полёт → CSV; итог — exportFinished
 
     QVector<GeoPoint> acceptedArea() const { return m_acceptedArea; }   ///< область, принятая логгером (ID01 на ID04)
     SessionStore *store() const { return m_store; }     ///< для проверки (engine_test, session_test)
@@ -95,6 +94,7 @@ signals:
     void timeSeriesReady(qint64 sessionId, const QVector<Measurement> &series);
     void sdProgress(int percent);
     void sdImported(const SdReport &report);
+    void exportFinished(bool ok, const QString &path);
 
 private:
     bool ensureDb();                                    ///< база открыта? если нет — открыть (путь из настроек)

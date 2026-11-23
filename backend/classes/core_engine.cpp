@@ -10,6 +10,7 @@
 #include "sd_importer.h"
 #include "dose_grid.h"
 #include "dose_correction.h"
+#include "csv_exporter.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -321,6 +322,21 @@ void CoreEngine::importSd(const QStringList &files)
 {
     if (ensureDb())
         m_sd->importFiles(files);
+}
+
+/**
+    @brief Полёт → файлы CSV в папке folder (Ф14).
+    @note  Итог — exportFinished: ok и папка; при ошибке — ok = false и причина.
+*/
+void CoreEngine::exportCsv(qint64 sessionId, const QString &folder, quint32 parts)
+{
+    if (!ensureDb()) {
+        emit exportFinished(false, QStringLiteral("База полётов не открыта"));
+        return;
+    }
+    CsvExporter exporter;
+    const bool ok = exporter.exportSession(m_store->sessionDataFor(sessionId), folder, parts, m_settings);
+    emit exportFinished(ok, ok ? folder : exporter.error());
 }
 
 // ============================================================================
