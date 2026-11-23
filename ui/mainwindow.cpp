@@ -14,6 +14,11 @@
 #include "ui/pages/instruments/instrumentspage.h"
 #include "ui/pages/settings/settingspage.h"
 #include "ui/modules/alarmCenter/alarmdrawer.h"
+#include "ui/modules/notifier/notifier.h"
+#include "classes/drone_core.h"
+
+#include <QLabel>
+#include <QStatusBar>
 
 namespace {
 // Путь к карте, если в настройках ещё ничего не выбрано (как было захардкожено раньше)
@@ -36,7 +41,9 @@ MainWindow::MainWindow(QWidget *parent)
     setupMenu();
     setupAlarms();
     restoreSplitter();
+    setupCore();
 }
+
 
 MainWindow::~MainWindow()
 {
@@ -129,7 +136,106 @@ void MainWindow::setupAlarms()
 }
 
 // ---------------------------------------------------------------------------
-//  Страницы
+//  Ядро (DroneCore)
+// ---------------------------------------------------------------------------
+
+/**
+    @brief Создание ядра и подключение его сигналов к карте, строке состояния
+           и уведомлениям.
+    @note  Сейчас за DroneCore стоит заглушка ядра (тестовые данные).
+           Тексты — временные, до локализации (Ф15).
+*/
+void MainWindow::setupCore()
+{
+    core = new DroneCore(this);     // родитель — окно: удаляется вместе с ним, деструктор остановит поток ядра
+
+    // ---- строка состояния: режим логгера и связь ----
+    modeLabel = new QLabel(this);
+    linkLabel = new QLabel(this);
+    statusBar()->addPermanentWidget(modeLabel);
+    statusBar()->addPermanentWidget(linkLabel);
+
+    connect(core, &DroneCore::linkStatusChanged, this, [this](const LinkStatus &s) {
+        QString text;
+        switch (s.state) {
+        case LinkState::Closed:  text = "Порт закрито";             break;
+        case LinkState::Waiting: text = "Очікування даних";         break;
+        case LinkState::Ok:      text = "Зв'язок є";                break;
+        case LinkState::Silent:  text = "Радіомовчання";            break;
+        case LinkState::Lost:    text = "Зв'язок втрачено";         break;
+        }
+        if (s.secondsSinceLastPacket >= 0)
+            text += QString(" | %1 с тому").arg(s.secondsSinceLastPacket);
+        linkLabel->setText(QString("%1: %2").arg(s.portName, text));
+    });
+
+    connect(core, &DroneCore::loggerStatusChanged, this, [this](const LoggerStatus &s) {
+        QString text;
+        switch (s.mode) {
+        case LoggerMode::Unknown: text = "Невідомо";    break;
+        case LoggerMode::Test:    text = "Перевірка";   break;
+        case LoggerMode::Expect:  text = "Очікування";  break;
+        case LoggerMode::Work:    text = "Розвідка";    break;
+        case LoggerMode::Return:  text = "Повернення";  break;
+        case LoggerMode::Error:   text = "Аварія";      break;
+        }
+        if (s.spectrumStage == SpectrumStage::Preparing)  text += " | підготовка спектра";
+        if (s.spectrumStage == SpectrumStage::Collecting) text += " | набір спектра";
+        modeLabel->setText("Режим: " + text);
+    });
+
+    // ---- карта: дрон и путь ----
+    connect(core, &DroneCore::routePoint, this, [this](const RoutePoint &p) {
+        mapWidget->updateDronePosition(p.lat, p.lon);
+    });
+
+    // ---- карта: точки измерений ----
+    // Значок: 0 — обычная точка, 1 — радиация (выше порога предупреждения).
+    // Порог пока по умолчанию из CoreSettings — до подключения настроек.
+    const float warnLevel = CoreSettings().warnLevel;
+    connect(core, &DroneCore::measurement, this, [this, warnLevel](const Measurement &m) {
+        smarker mark;
+        mark.pt.latt  = m.lat;
+        mark.pt.longt = m.lon;
+        mark.type     = (m.shownPaed() >= warnLevel) ? 1 : 0;
+        mark.is_sel   = false;
+        mapWidget->appendActiveThread(mark);
+    });
+
+    // ---- уведомления: тревоги ----
+    connect(core, &DroneCore::alarm, this, [](const Alarm &a) {
+        QString text;
+        switch (a.type) {
+        case AlarmType::DoseRate:     text = QString("ПАЕД %1 мкЗв/год").arg(a.value, 0, 'f', 2); break;
+        case AlarmType::LoggerError:  text = "Аварія дрона";            break;
+        case AlarmType::SdError:      text = "Помилка SD-карти";         break;
+        case AlarmType::LinkLost:     text = "Зв'язок втрачено";         break;
+        case AlarmType::ModeMismatch: text = "Режим логгера не збігається"; break;
+        }
+        if (a.level == AlarmLevel::Alarm)
+            NotificationManager::showError("ТРИВОГА: " + text);
+        else
+            NotificationManager::showWarning("Попередження: " + text);
+    });
+
+    // ---- события: в строку состояния на 5 с (журнала пока нет) ----
+    connect(core, &DroneCore::event, this, [this](const CoreEvent &e) {
+        statusBar()->showMessage(QString("Подія 0x%1").arg(int(e.code), 2, 16, QChar('0')), 5000);
+    });
+
+    // ---- ошибки ядра ----
+    connect(core, &DroneCore::coreError, this, [](const QString &source, const QString &text) {
+        NotificationManager::showError(source + ": " + text);
+    });
+
+    // ---- запуск ----
+    core->applySettings(CoreSettings());        // настройки по умолчанию — до подключения страницы настроек
+    core->openPort("STUB");                      // временно: пока нет выбора COM-порта; заглушка порт не открывает
+}
+
+
+// ---------------------------------------------------------------------------
+//  Боковые страницы
 // ---------------------------------------------------------------------------
 
 void MainWindow::addPage(const QString &title, QWidget *widget)

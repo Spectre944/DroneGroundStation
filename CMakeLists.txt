@@ -51,6 +51,13 @@ qt_add_executable(DroneGroundStation
     ui/modules/preflight/preflightchecklist.cpp ui/modules/preflight/preflightchecklist.h
     ui/modules/alarmCenter/alarmcenter.cpp ui/modules/alarmCenter/alarmcenter.h
     ui/modules/alarmCenter/alarmdrawer.cpp ui/modules/alarmCenter/alarmdrawer.h
+    backend/classes/core_stub.cpp backend/classes/core_stub.h
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/logger_state.cpp backend/classes/logger_state.h
+    backend/classes/core_engine.cpp backend/classes/core_engine.h
 )
 
 target_include_directories(DroneGroundStation
@@ -70,6 +77,74 @@ target_link_libraries(DroneGroundStation
         Qt6::Core5Compat
         Qt6::SerialPort
 )
+
+# ---- link_test: проверка DroneLink без окна (консольная программа) ----
+qt_add_executable(link_test
+    tests/link_test.cpp
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(link_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(link_test PRIVATE Qt6::Core Qt6::SerialPort)
+
+
+# ---- parser_test: проверка MessageParser без окна (консольная программа) ----
+qt_add_executable(parser_test
+    tests/parser_test.cpp
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(parser_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(parser_test PRIVATE Qt6::Core)
+
+
+# ---- commands_test: проверка DroneCommands без окна и без порта ----
+qt_add_executable(commands_test
+    tests/commands_test.cpp
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(commands_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(commands_test PRIVATE Qt6::Core Qt6::SerialPort)
+
+
+# ---- area_test: проверка ReconArea без окна ----
+qt_add_executable(area_test
+    tests/area_test.cpp
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(area_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(area_test PRIVATE Qt6::Core Qt6::SerialPort)
+
+
+# ---- state_test: проверка LoggerState без окна ----
+qt_add_executable(state_test
+    tests/state_test.cpp
+    backend/classes/logger_state.cpp backend/classes/logger_state.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(state_test PRIVATE Qt6::Core)
+
+
+# ---- engine_test: проверка всей цепочки ядра (CoreEngine) без окна и без логгера ----
+qt_add_executable(engine_test
+    tests/engine_test.cpp
+    backend/classes/core_engine.cpp backend/classes/core_engine.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/logger_state.cpp backend/classes/logger_state.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(engine_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(engine_test PRIVATE Qt6::Core Qt6::SerialPort)
 
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)

@@ -673,6 +673,15 @@ public slots:
     void zoomOut();
     void centerOnPoint(const smarker &marker);
 
+    /**
+        @brief Новое положение дрона (из ядра, DroneCore::routePoint).
+        @param lat Широта, градусы.
+        @param lon Долгота, градусы.
+        @note  Иконка дрона переносится, путь дорисовывается; при включённом
+               «Центрувати карту на дроні» карта следует за дроном.
+    */
+    void updateDronePosition(double lat, double lon);
+
     void onReconEnded();
 
     void setupActiveThreads(const QVector<smarker> &threats);
