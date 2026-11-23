@@ -20,6 +20,7 @@
 
 #include "core_types.h"
 class CoreStub;
+class CoreEngine;
 class DroneCore : public QObject
 {
     Q_OBJECT
@@ -176,6 +177,9 @@ signals:
 private:
     QThread      m_thread;          ///< поток ядра: в нём работают все классы ядра
     CoreStub    *m_stub = nullptr;  ///< заглушка ядра (шаг 3); живёт в потоке ядра, удаляется по QThread::finished
+    CoreEngine  *m_engine = nullptr;    ///< настоящее ядро (шаг 9); живёт в потоке ядра, удаляется по QThread::finished
+    bool         m_useStub = true;      ///< сейчас работает заглушка (порт «STUB») или настоящее ядро
+    bool         m_portOpen = false;    ///< порт открыт (openPort без closePort)
     CoreSettings m_settings;        ///< последние настройки от интерфейса
     quint32      m_nextSeq = 1;     ///< следующий номер запроса команды
 };

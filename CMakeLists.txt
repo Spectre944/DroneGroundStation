@@ -48,6 +48,7 @@ qt_add_executable(DroneGroundStation
     backend/classes/message_parser.cpp backend/classes/message_parser.h
     backend/classes/recon_area.cpp backend/classes/recon_area.h
     backend/classes/logger_state.cpp backend/classes/logger_state.h
+    backend/classes/core_engine.cpp backend/classes/core_engine.h
 )
 
 target_include_directories(DroneGroundStation
@@ -120,6 +121,21 @@ qt_add_executable(state_test
 )
 target_include_directories(state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
 target_link_libraries(state_test PRIVATE Qt6::Core)
+
+
+# ---- engine_test: проверка всей цепочки ядра (CoreEngine) без окна и без логгера ----
+qt_add_executable(engine_test
+    tests/engine_test.cpp
+    backend/classes/core_engine.cpp backend/classes/core_engine.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/logger_state.cpp backend/classes/logger_state.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(engine_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(engine_test PRIVATE Qt6::Core Qt6::SerialPort)
 
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)

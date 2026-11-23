@@ -1,11 +1,12 @@
 #include "drone_core.h"
 #include "core_stub.h"
+#include "core_engine.h"
 
 #include <QSerialPortInfo>
 
 /**
-    @brief Конструктор: регистрация типов, создание заглушки в потоке ядра,
-           соединение сигналов, запуск потока.
+    @brief Конструктор: регистрация типов, создание заглушки и настоящего ядра
+           в потоке ядра, соединение сигналов, запуск потока.
 */
 DroneCore::DroneCore(QObject *parent)
     : QObject(parent)
@@ -17,7 +18,7 @@ DroneCore::DroneCore(QObject *parent)
     // Имя потока видно в отладчике
     m_thread.setObjectName(QStringLiteral("DroneCoreThread"));
 
-    // ---- Заглушка ядра (шаг 3). На шаге 9 здесь будут настоящие классы ----
+    // ---- Заглушка ядра (шаг 3): тестовые данные, порт «STUB» ----
 
     // Создаётся без родителя: объект с родителем нельзя перенести в другой поток
     m_stub = new CoreStub;
@@ -54,6 +55,23 @@ DroneCore::DroneCore(QObject *parent)
     connect(m_stub, &CoreStub::exportFinished,         this, &DroneCore::exportFinished);
     connect(m_stub, &CoreStub::alarmAcknowledged,      this, &DroneCore::alarmAcknowledged);
 
+    // ---- Настоящее ядро (шаг 9): COM-порт и классы ядра ----
+    m_engine = new CoreEngine;
+    m_engine->moveToThread(&m_thread);
+    connect(&m_thread, &QThread::finished, m_engine, &QObject::deleteLater);
+
+    // Сигналы настоящего ядра → те же сигналы DroneCore. Работает всегда кто-то один:
+    // заглушка или ядро (см. openPort), поэтому сигналы не смешиваются.
+    connect(m_engine, &CoreEngine::linkStatusChanged,      this, &DroneCore::linkStatusChanged);
+    connect(m_engine, &CoreEngine::loggerStatusChanged,    this, &DroneCore::loggerStatusChanged);
+    connect(m_engine, &CoreEngine::allowedCommandsChanged, this, &DroneCore::allowedCommandsChanged);
+    connect(m_engine, &CoreEngine::routePoint,             this, &DroneCore::routePoint);
+    connect(m_engine, &CoreEngine::measurement,            this, &DroneCore::measurement);
+    connect(m_engine, &CoreEngine::event,                  this, &DroneCore::event);
+    connect(m_engine, &CoreEngine::coreError,              this, &DroneCore::coreError);
+    connect(m_engine, &CoreEngine::commandFinished,        this, &DroneCore::commandFinished);
+    connect(m_engine, &CoreEngine::areaChecked,            this, &DroneCore::areaChecked);
+
     m_thread.start();
 }
 
@@ -62,7 +80,7 @@ DroneCore::DroneCore(QObject *parent)
     @note  quit() завершает цикл событий потока, wait() ждёт, пока поток
            действительно закончится. Без wait() программа может закрыться,
            пока поток ещё работает (ошибка «QThread destroyed while running»).
-           Заглушка удаляется в потоке ядра по сигналу finished (deleteLater).
+           Заглушка и ядро удаляются в потоке ядра по сигналу finished (deleteLater).
 */
 DroneCore::~DroneCore()
 {
@@ -91,14 +109,32 @@ QStringList DroneCore::availablePorts() const
     return names;
 }
 
+/**
+    @brief Открыть порт. «STUB» — заглушка (тестовые данные), иначе — настоящее ядро и COM-порт.
+    @note  Если до этого работал другой, он сначала закрывается.
+*/
 void DroneCore::openPort(const QString &name)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, name] { stub->openPort(name); });
+    const bool useStub = (name == QStringLiteral("STUB"));
+
+    if (m_portOpen && useStub != m_useStub)
+        closePort();                        // закрыть того, кто работал до этого
+    m_useStub = useStub;
+    m_portOpen = true;
+
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, name] { stub->openPort(name); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, name] { engine->openPort(name); });
 }
 
 void DroneCore::closePort()
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub] { stub->closePort(); });
+    m_portOpen = false;
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub] { stub->closePort(); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine] { engine->closePort(); });
 }
 
 // ============================================================================
@@ -111,17 +147,25 @@ quint32 DroneCore::sendCommand(CommandRequest request)
     // какой ответ commandFinished относится к этой команде
     request.seq = m_nextSeq++;
 
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, request] { stub->sendCommand(request); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, request] { stub->sendCommand(request); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, request] { engine->sendCommand(request); });
     return request.seq;
 }
 
 void DroneCore::checkArea(const QVector<GeoPoint> &vertices, bool isRoute)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, vertices, isRoute] { stub->checkArea(vertices, isRoute); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, vertices, isRoute] { stub->checkArea(vertices, isRoute); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, vertices, isRoute] { engine->checkArea(vertices, isRoute); });
 }
 
 // ============================================================================
 //  Сессии (Ф12) и архив
+//  Пока всегда в заглушку: у настоящего ядра их ещё нет (шаг 10),
+//  а интерфейсу нужны тестовые данные.
 // ============================================================================
 
 void DroneCore::startSession(const QString &name)
@@ -177,7 +221,9 @@ void DroneCore::exportCsv(qint64 sessionId, const QString &folder, quint32 parts
 void DroneCore::applySettings(const CoreSettings &settings)
 {
     m_settings = settings;
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, settings] { stub->applySettings(settings); });
+    // Оба: заглушке нужны пороги, ядру — порог связи и размер области
+    QMetaObject::invokeMethod(m_stub,   [stub = m_stub, settings]     { stub->applySettings(settings); });
+    QMetaObject::invokeMethod(m_engine, [engine = m_engine, settings] { engine->applySettings(settings); });
 }
 
 void DroneCore::acknowledgeAlarm(qint64 alarmId)
