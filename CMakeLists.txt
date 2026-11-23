@@ -72,6 +72,16 @@ qt_add_executable(link_test
 target_include_directories(link_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
 target_link_libraries(link_test PRIVATE Qt6::Core Qt6::SerialPort)
 
+
+# ---- parser_test: проверка MessageParser без окна (консольная программа) ----
+qt_add_executable(parser_test
+    tests/parser_test.cpp
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(parser_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(parser_test PRIVATE Qt6::Core)
+
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)
 
