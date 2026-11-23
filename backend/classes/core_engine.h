@@ -5,7 +5,7 @@
     @file  core_engine.h
     @brief Настоящее ядро: цепочка DroneLink → MessageParser → LoggerState,
            DroneCommands, ReconArea, SessionStore, SpectrumCollector, AlarmManager,
-           SdImporter —
+           SdImporter, DoseGrid —
            соединённые по схеме
            «Классов ядра», разд. 4.
 
@@ -17,7 +17,7 @@
     @note  Всё принятое и отправленное записывается в базу полётов (SessionStore)
            в момент события. Номер записи в базе (id) попадает в измерение и событие,
            которые уходят в интерфейс.
-    @note  Пока без пересчёта на 1 м, сетки и экспорта —
+    @note  Пока без пересчёта на 1 м и экспорта —
            они подключаются на следующих шагах.
 */
 
@@ -34,6 +34,7 @@ class SessionStore;
 class SpectrumCollector;
 class AlarmManager;
 class SdImporter;
+class DoseGrid;
 
 class CoreEngine : public QObject
 {
@@ -74,6 +75,7 @@ signals:
     void allowedCommandsChanged(const QList<quint8> &ids);
     void routePoint(const RoutePoint &point);
     void measurement(const Measurement &m);
+    void gridUpdated(const GridData &grid);
     void spectrumUpdated(const Spectrum &spectrum);
     void spectrumFinished(const Spectrum &spectrum);
     void alarm(const Alarm &a);
@@ -100,6 +102,7 @@ private:
     void onEvent(const CoreEvent &e);
     void onSpectrumFinished(const Spectrum &spectrum);
     void onAlarm(const Alarm &a);
+    void onSessionData(const SessionData &data);
     void onLoggerStatus(const LoggerStatus &status);
     void onPortError(const QString &text);
     void sendEvent(EventCode code, const QVariantMap &params = {});
@@ -112,6 +115,7 @@ private:
     SpectrumCollector *m_spectra = nullptr;
     AlarmManager  *m_alarms = nullptr;
     SdImporter    *m_sd = nullptr;
+    DoseGrid      *m_grid = nullptr;         ///< тепловая карта текущего полёта
 
     qint64         m_localAlarmId = 0;      ///< номер тревоги, если база не открыта: −1, −2, … (не пересекаются с номерами базы)
 

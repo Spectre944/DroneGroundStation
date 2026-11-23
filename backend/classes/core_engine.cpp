@@ -8,6 +8,7 @@
 #include "spectrum_collector.h"
 #include "alarm_manager.h"
 #include "sd_importer.h"
+#include "dose_grid.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -34,6 +35,7 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     m_spectra  = new SpectrumCollector(this);
     m_alarms   = new AlarmManager(this);
     m_sd       = new SdImporter(m_store, this);
+    m_grid     = new DoseGrid(this);
 
     // ---- приём: порт → база, разбор ----
     connect(m_link, &DroneLink::rawData,            m_store,  &SessionStore::saveRaw);      // сырой журнал (Ф1)
@@ -80,7 +82,8 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     connect(m_store, &SessionStore::sessionStarted,  this, &CoreEngine::sessionStarted);
     connect(m_store, &SessionStore::sessionFinished, this, &CoreEngine::sessionFinished);
     connect(m_store, &SessionStore::sessionsListed,  this, &CoreEngine::sessionsListed);
-    connect(m_store, &SessionStore::sessionData,     this, &CoreEngine::sessionData);
+    connect(m_store, &SessionStore::sessionData,     this, &CoreEngine::onSessionData);
+    connect(m_grid,  &DoseGrid::gridUpdated,         this, &CoreEngine::gridUpdated);
     connect(m_store, &SessionStore::archiveResult,   this, &CoreEngine::archiveResult);
     connect(m_store, &SessionStore::timeSeriesReady, this, &CoreEngine::timeSeriesReady);
     connect(m_sd, &SdImporter::progress, this, &CoreEngine::sdProgress);
@@ -121,6 +124,7 @@ void CoreEngine::openPort(const QString &name)
     m_state->reset();
     m_spectra->reset();
     m_alarms->reset();
+    m_grid->clear();
     m_acceptedArea.clear();
     ensureDb();                             // дальше всё принятое — в базу
 
@@ -158,6 +162,7 @@ void CoreEngine::onMeasurement(const Measurement &m)
     saved.id = m_store->saveMeasurement(m);     // номер в базе — интерфейс по нему выделяет точку
     m_state->onMeasurement(saved);
     emit measurement(saved);
+    m_grid->addMeasurement(saved);              // тепловая карта: клетки в радиусе R
     m_alarms->onMeasurement(saved);             // после точки: тревога уходит за измерением, которое её вызвало
 }
 
@@ -186,6 +191,23 @@ void CoreEngine::onAlarm(const Alarm &a)
     if (saved.id == 0)
         saved.id = --m_localAlarmId;
     emit alarm(saved);
+}
+
+/**
+    @brief Прошлый полёт: данные наружу, затем его тепловая карта.
+    @note  Сетка прошлого полёта считается отдельно — сетка текущего полёта не трогается.
+           Область — последняя принятая в том полёте; нет — по измерениям.
+*/
+void CoreEngine::onSessionData(const SessionData &data)
+{
+    emit sessionData(data);
+
+    DoseGrid past;
+    past.setSettings(m_settings.gridCellM, m_settings.gridRadiusM, m_settings.gridPower, m_settings.warnLevel);
+    if (!data.areas.isEmpty())
+        past.setArea(data.areas.last());
+    past.setMeasurements(data.measurements);
+    emit gridUpdated(past.data());
 }
 
 void CoreEngine::acknowledgeAlarm(qint64 alarmId)
@@ -223,6 +245,7 @@ void CoreEngine::onCommandFinished(const CommandOutcome &outcome)
         m_acceptedArea = outcome.request.vertices;
         m_store->saveArea(outcome.request, outcome.finishTime);
         m_spectra->setDuration(outcome.request.spectrumS);     // время набора спектра из ID04
+        m_grid->setArea(outcome.request.vertices);             // новая территория — новая сетка
     }
     if (outcome.request.id == CmdSpectrumTime && outcome.result == CommandResult::Done)
         m_spectra->setDuration(quint16(outcome.request.value)); // ID11
@@ -297,6 +320,7 @@ void CoreEngine::applySettings(const CoreSettings &settings)
     m_commands->setMaxAreaKm(settings.maxAreaKm);
     m_store->setThresholds(settings.warnLevel, settings.alarmLevel);
     m_alarms->setThresholds(settings.warnLevel, settings.alarmLevel);
+    m_grid->setSettings(settings.gridCellM, settings.gridRadiusM, settings.gridPower, settings.warnLevel);
     m_store->saveSettings(settings);        // идёт полёт — новые настройки тоже в базу
 }
 
