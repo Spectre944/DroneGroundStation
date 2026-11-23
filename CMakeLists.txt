@@ -42,6 +42,7 @@ qt_add_executable(DroneGroundStation
     map/mappicker.cpp map/mappicker.h
     backend/classes/core_types.cpp backend/classes/core_types.h
     backend/classes/drone_core.cpp backend/classes/drone_core.h
+    backend/classes/core_stub.cpp backend/classes/core_stub.h
 )
 
 target_include_directories(DroneGroundStation

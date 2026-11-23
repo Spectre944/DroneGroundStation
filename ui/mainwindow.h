@@ -15,6 +15,8 @@ class ReconPage;
 class DatabasePage;
 class InstrumentsPage;
 class SettingsPage;
+class DroneCore;
+class QLabel;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -46,6 +48,7 @@ private:
     void setupMap();
     void setupPages();
     void setupMenu();
+    void setupCore();       ///< создание ядра и подключение его сигналов
 
     SidePanel *addSidePanel(const QString &title, QWidget *page);
     void togglePanel(SidePanel *panel);
@@ -67,5 +70,11 @@ private:
     SidePanel *databasePanel = nullptr;
     SidePanel *instrumentsPanel = nullptr;
     SidePanel *settingsPanel = nullptr;
+
+    // --- ядро ---
+    DroneCore *core      = nullptr;     ///< фасад ядра; удаляется вместе с окном
+    QLabel    *linkLabel = nullptr;     ///< строка состояния: связь
+    QLabel    *modeLabel = nullptr;     ///< строка состояния: режим логгера
+
 };
 #endif // MAINWINDOW_H

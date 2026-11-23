@@ -19,7 +19,7 @@
 #include <QStringList>
 
 #include "core_types.h"
-
+class CoreStub;
 class DroneCore : public QObject
 {
     Q_OBJECT
@@ -175,6 +175,7 @@ signals:
 
 private:
     QThread      m_thread;          ///< поток ядра: в нём работают все классы ядра
+    CoreStub    *m_stub = nullptr;  ///< заглушка ядра (шаг 3); живёт в потоке ядра, удаляется по QThread::finished
     CoreSettings m_settings;        ///< последние настройки от интерфейса
     quint32      m_nextSeq = 1;     ///< следующий номер запроса команды
 };

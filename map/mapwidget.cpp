@@ -852,6 +852,20 @@ void MapWidget::centerOnPoint(const smarker &marker)
     setCenter(marker.pt);
 }
 
+
+
+void MapWidget::updateDronePosition(double lat, double lon)
+{
+    smappoint pt;
+    pt.latt  = lat;
+    pt.longt = lon;
+    vehicleLayer->updateVehiclePosition(pt);   // иконка + путь, перерисовка слоя
+
+    if (trackMarkerMode && vehicleLayer->isValidPosition())
+        setCenter(pt);                          // карта следует за дроном
+}
+
+
 // ------------------------ РИСОВАНИЕ ------------------------ //
 
 void MapWidget::startPolygonDrawing() { if (drawing) drawing->startPolygon(); }
