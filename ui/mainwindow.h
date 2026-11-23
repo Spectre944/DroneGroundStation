@@ -20,7 +20,6 @@ class InstrumentsPage;
 class SettingsPage;
 class AlarmDrawer;
 class DroneCore;
-class QLabel;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -81,9 +80,7 @@ private:
     AlarmDrawer    *alarmDrawer    = nullptr;
 
     // --- ядро ---
-    DroneCore *core      = nullptr;     ///< фасад ядра; удаляется вместе с окном
-    QLabel    *linkLabel = nullptr;     ///< строка состояния: связь
-    QLabel    *modeLabel = nullptr;     ///< строка состояния: режим логгера
+    DroneCore *core = nullptr;          ///< фасад ядра; удаляется вместе с окном
 
 };
 #endif // MAINWINDOW_H
