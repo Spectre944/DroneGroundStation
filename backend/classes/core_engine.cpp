@@ -6,6 +6,7 @@
 #include "recon_area.h"
 #include "session_store.h"
 #include "spectrum_collector.h"
+#include "alarm_manager.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -30,12 +31,14 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     m_state    = new LoggerState(this);
     m_store    = new SessionStore(this);
     m_spectra  = new SpectrumCollector(this);
+    m_alarms   = new AlarmManager(this);
 
     // ---- приём: порт → база, разбор ----
     connect(m_link, &DroneLink::rawData,            m_store,  &SessionStore::saveRaw);      // сырой журнал (Ф1)
     connect(m_link, &DroneLink::packetReceived,     m_store,  &SessionStore::savePacket);   // пакет — для сверки с SD
     connect(m_link, &DroneLink::packetReceived,     m_parser, &MessageParser::parse);
     connect(m_link, &DroneLink::linkStatusChanged,  this,     &CoreEngine::linkStatusChanged);
+    connect(m_link, &DroneLink::linkStatusChanged,  m_alarms, &AlarmManager::onLinkStatus);
     connect(m_link, &DroneLink::portError,          this,     &CoreEngine::onPortError);
 
     // ---- разбор → команды, состояние, база и наружу ----
@@ -59,6 +62,12 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     connect(m_state, &LoggerState::statusChanged,          this,       &CoreEngine::onLoggerStatus);
     connect(m_state, &LoggerState::allowedCommandsChanged, this,       &CoreEngine::allowedCommandsChanged);
     connect(m_state, &LoggerState::spectrumFinished,       m_spectra,  &SpectrumCollector::finish);
+    connect(m_state, &LoggerState::enteredError,           m_alarms,   &AlarmManager::onLoggerError);
+    connect(m_state, &LoggerState::modeMismatch,           m_alarms,   &AlarmManager::onModeMismatch);
+
+    // ---- тревоги → база, наружу ----
+    connect(m_alarms, &AlarmManager::alarm, this, &CoreEngine::onAlarm);
+    connect(m_alarms, &AlarmManager::event, this, &CoreEngine::onEvent);
 
     // ---- спектры → состояние, база, наружу ----
     connect(m_spectra, &SpectrumCollector::stoppedByItself, m_state, &LoggerState::onSpectrumStopped);
@@ -107,6 +116,7 @@ void CoreEngine::openPort(const QString &name)
     // Новый сеанс связи: что было с логгером раньше — неизвестно
     m_state->reset();
     m_spectra->reset();
+    m_alarms->reset();
     m_acceptedArea.clear();
     ensureDb();                             // дальше всё принятое — в базу
 
@@ -134,6 +144,7 @@ void CoreEngine::onPortError(const QString &text)
 void CoreEngine::onRoutePoint(const RoutePoint &point)
 {
     m_store->saveRoutePoint(point);
+    m_alarms->onRoutePoint(point);
     emit routePoint(point);
 }
 
@@ -143,6 +154,7 @@ void CoreEngine::onMeasurement(const Measurement &m)
     saved.id = m_store->saveMeasurement(m);     // номер в базе — интерфейс по нему выделяет точку
     m_state->onMeasurement(saved);
     emit measurement(saved);
+    m_alarms->onMeasurement(saved);             // после точки: тревога уходит за измерением, которое её вызвало
 }
 
 void CoreEngine::onEvent(const CoreEvent &e)
@@ -150,6 +162,7 @@ void CoreEngine::onEvent(const CoreEvent &e)
     CoreEvent saved = e;
     saved.id = m_store->saveEvent(e);
     emit event(saved);
+    m_alarms->onEvent(saved);                   // ошибка SD (ID16)
 }
 
 void CoreEngine::onSpectrumFinished(const Spectrum &spectrum)
@@ -157,6 +170,25 @@ void CoreEngine::onSpectrumFinished(const Spectrum &spectrum)
     Spectrum saved = spectrum;
     saved.info.id = m_store->saveSpectrum(spectrum);   // итог и все порции — одной транзакцией
     emit spectrumFinished(saved);
+}
+
+/**
+    @brief Тревога: номер — из базы; база не открыта — свой отрицательный номер.
+*/
+void CoreEngine::onAlarm(const Alarm &a)
+{
+    Alarm saved = a;
+    saved.id = m_store->saveAlarm(a);
+    if (saved.id == 0)
+        saved.id = --m_localAlarmId;
+    emit alarm(saved);
+}
+
+void CoreEngine::acknowledgeAlarm(qint64 alarmId)
+{
+    if (alarmId > 0)
+        m_store->setAlarmAcknowledged(alarmId);
+    emit alarmAcknowledged(alarmId);
 }
 
 void CoreEngine::onLoggerStatus(const LoggerStatus &status)
@@ -250,6 +282,7 @@ void CoreEngine::applySettings(const CoreSettings &settings)
     m_link->setLinkTimeout(settings.linkTimeoutS);
     m_commands->setMaxAreaKm(settings.maxAreaKm);
     m_store->setThresholds(settings.warnLevel, settings.alarmLevel);
+    m_alarms->setThresholds(settings.warnLevel, settings.alarmLevel);
     m_store->saveSettings(settings);        // идёт полёт — новые настройки тоже в базу
 }
 

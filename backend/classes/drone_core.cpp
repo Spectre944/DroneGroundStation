@@ -69,6 +69,8 @@ DroneCore::DroneCore(QObject *parent)
     connect(m_engine, &CoreEngine::measurement,            this, &DroneCore::measurement);
     connect(m_engine, &CoreEngine::spectrumUpdated,        this, &DroneCore::spectrumUpdated);
     connect(m_engine, &CoreEngine::spectrumFinished,       this, &DroneCore::spectrumFinished);
+    connect(m_engine, &CoreEngine::alarm,                  this, &DroneCore::alarm);
+    connect(m_engine, &CoreEngine::alarmAcknowledged,      this, &DroneCore::alarmAcknowledged);
     connect(m_engine, &CoreEngine::event,                  this, &DroneCore::event);
     connect(m_engine, &CoreEngine::coreError,              this, &DroneCore::coreError);
     connect(m_engine, &CoreEngine::commandFinished,        this, &DroneCore::commandFinished);
@@ -253,5 +255,8 @@ void DroneCore::applySettings(const CoreSettings &settings)
 
 void DroneCore::acknowledgeAlarm(qint64 alarmId)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, alarmId] { stub->acknowledgeAlarm(alarmId); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, alarmId] { stub->acknowledgeAlarm(alarmId); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, alarmId] { engine->acknowledgeAlarm(alarmId); });
 }

@@ -4,7 +4,8 @@
 /**
     @file  core_engine.h
     @brief Настоящее ядро: цепочка DroneLink → MessageParser → LoggerState,
-           DroneCommands, ReconArea, SessionStore, SpectrumCollector — соединённые по схеме
+           DroneCommands, ReconArea, SessionStore, SpectrumCollector, AlarmManager —
+           соединённые по схеме
            «Классов ядра», разд. 4.
 
     Устроено как заглушка CoreStub: те же методы и сигналы. DroneCore
@@ -15,7 +16,7 @@
     @note  Всё принятое и отправленное записывается в базу полётов (SessionStore)
            в момент события. Номер записи в базе (id) попадает в измерение и событие,
            которые уходят в интерфейс.
-    @note  Пока без тревог, SD, пересчёта на 1 м, сетки и экспорта —
+    @note  Пока без SD, пересчёта на 1 м, сетки и экспорта —
            они подключаются на следующих шагах.
 */
 
@@ -30,6 +31,7 @@ class DroneCommands;
 class LoggerState;
 class SessionStore;
 class SpectrumCollector;
+class AlarmManager;
 
 class CoreEngine : public QObject
 {
@@ -57,6 +59,7 @@ public:
     void openSession(qint64 sessionId);                 ///< → sessionData
     void queryArchive(const SessionFilter &filter);     ///< → archiveResult
     void requestTimeSeries(qint64 sessionId);           ///< → timeSeriesReady
+    void acknowledgeAlarm(qint64 alarmId);              ///< оператор увидел тревогу → база, alarmAcknowledged
 
     QVector<GeoPoint> acceptedArea() const { return m_acceptedArea; }   ///< область, принятая логгером (ID01 на ID04)
     SessionStore *store() const { return m_store; }     ///< для проверки (engine_test, session_test)
@@ -70,6 +73,8 @@ signals:
     void measurement(const Measurement &m);
     void spectrumUpdated(const Spectrum &spectrum);
     void spectrumFinished(const Spectrum &spectrum);
+    void alarm(const Alarm &a);
+    void alarmAcknowledged(qint64 alarmId);
     void event(const CoreEvent &e);
     void coreError(const QString &source, const QString &text);
     void commandFinished(const CommandOutcome &outcome);
@@ -89,6 +94,7 @@ private:
     void onMeasurement(const Measurement &m);
     void onEvent(const CoreEvent &e);
     void onSpectrumFinished(const Spectrum &spectrum);
+    void onAlarm(const Alarm &a);
     void onLoggerStatus(const LoggerStatus &status);
     void onPortError(const QString &text);
     void sendEvent(EventCode code, const QVariantMap &params = {});
@@ -99,6 +105,9 @@ private:
     LoggerState   *m_state = nullptr;
     SessionStore  *m_store = nullptr;
     SpectrumCollector *m_spectra = nullptr;
+    AlarmManager  *m_alarms = nullptr;
+
+    qint64         m_localAlarmId = 0;      ///< номер тревоги, если база не открыта: −1, −2, … (не пересекаются с номерами базы)
 
     CoreSettings      m_settings;           ///< последние настройки
     QVector<GeoPoint> m_acceptedArea;       ///< принятая логгером область
