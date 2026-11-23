@@ -9,6 +9,7 @@
 #include "alarm_manager.h"
 #include "sd_importer.h"
 #include "dose_grid.h"
+#include "dose_correction.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -36,6 +37,8 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     m_alarms   = new AlarmManager(this);
     m_sd       = new SdImporter(m_store, this);
     m_grid     = new DoseGrid(this);
+    m_correction = new DoseCorrection;
+    m_sd->setProcessor([this](const Measurement &m) { return m_correction->apply(m); });
 
     // ---- приём: порт → база, разбор ----
     connect(m_link, &DroneLink::rawData,            m_store,  &SessionStore::saveRaw);      // сырой журнал (Ф1)
@@ -93,6 +96,11 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     });
 }
 
+CoreEngine::~CoreEngine()
+{
+    delete m_correction;                    // не QObject — удаляется сам
+}
+
 // ============================================================================
 //  База
 // ============================================================================
@@ -125,6 +133,7 @@ void CoreEngine::openPort(const QString &name)
     m_spectra->reset();
     m_alarms->reset();
     m_grid->clear();
+    m_correction->setArea({});
     m_acceptedArea.clear();
     ensureDb();                             // дальше всё принятое — в базу
 
@@ -156,10 +165,14 @@ void CoreEngine::onRoutePoint(const RoutePoint &point)
     emit routePoint(point);
 }
 
+/**
+    @brief Измерение: пересчёт на 1 м и флаги → база → наружу, сетка, тревоги.
+    @note  Все дальше получают одно и то же обработанное измерение.
+*/
 void CoreEngine::onMeasurement(const Measurement &m)
 {
-    Measurement saved = m;
-    saved.id = m_store->saveMeasurement(m);     // номер в базе — интерфейс по нему выделяет точку
+    Measurement saved = m_correction->apply(m);
+    saved.id = m_store->saveMeasurement(saved); // номер в базе — интерфейс по нему выделяет точку
     m_state->onMeasurement(saved);
     emit measurement(saved);
     m_grid->addMeasurement(saved);              // тепловая карта: клетки в радиусе R
@@ -246,6 +259,7 @@ void CoreEngine::onCommandFinished(const CommandOutcome &outcome)
         m_store->saveArea(outcome.request, outcome.finishTime);
         m_spectra->setDuration(outcome.request.spectrumS);     // время набора спектра из ID04
         m_grid->setArea(outcome.request.vertices);             // новая территория — новая сетка
+        m_correction->setArea(outcome.request.vertices);       // флаг «вне области»
     }
     if (outcome.request.id == CmdSpectrumTime && outcome.result == CommandResult::Done)
         m_spectra->setDuration(quint16(outcome.request.value)); // ID11
@@ -321,6 +335,7 @@ void CoreEngine::applySettings(const CoreSettings &settings)
     m_store->setThresholds(settings.warnLevel, settings.alarmLevel);
     m_alarms->setThresholds(settings.warnLevel, settings.alarmLevel);
     m_grid->setSettings(settings.gridCellM, settings.gridRadiusM, settings.gridPower, settings.warnLevel);
+    m_correction->setSettings(settings);
     m_store->saveSettings(settings);        // идёт полёт — новые настройки тоже в базу
 }
 

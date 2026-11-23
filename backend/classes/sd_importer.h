@@ -19,6 +19,7 @@
 
 #include <QObject>
 #include <QDate>
+#include <functional>
 #include <QStringList>
 #include <QVector>
 
@@ -41,6 +42,12 @@ public:
     */
     SdReport importFiles(const QStringList &files);
 
+    /**
+        @brief Обработка измерения с SD перед записью (пересчёт на 1 м, флаги) — как у эфира.
+        @note  Не задана — измерение пишется как есть.
+    */
+    void setProcessor(std::function<Measurement(const Measurement &)> f) { m_processor = std::move(f); }
+
 signals:
     void progress(int percent);                 ///< ход импорта 0–100
     void imported(const SdReport &report);      ///< импорт окончен
@@ -61,6 +68,7 @@ private:
     void addMissing(const Packet &p);           ///< пакет «только на SD» — в базу с источником SD
 
     SessionStore *m_store = nullptr;
+    std::function<Measurement(const Measurement &)> m_processor;
 };
 
 #endif // SD_IMPORTER_H

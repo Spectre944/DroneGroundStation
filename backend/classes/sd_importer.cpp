@@ -301,6 +301,8 @@ void SdImporter::addMissing(const Packet &p)
         m_store->saveRoutePoint(r);
     });
     QObject::connect(&parser, &MessageParser::measurement, [this](Measurement m) {
+        if (m_processor)
+            m = m_processor(m);             // пересчёт на 1 м и флаги — как у эфира
         m.source = DataSource::Sd;
         m_store->saveMeasurement(m);
     });

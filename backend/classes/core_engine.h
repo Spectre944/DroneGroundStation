@@ -5,7 +5,7 @@
     @file  core_engine.h
     @brief Настоящее ядро: цепочка DroneLink → MessageParser → LoggerState,
            DroneCommands, ReconArea, SessionStore, SpectrumCollector, AlarmManager,
-           SdImporter, DoseGrid —
+           SdImporter, DoseGrid, DoseCorrection —
            соединённые по схеме
            «Классов ядра», разд. 4.
 
@@ -17,7 +17,7 @@
     @note  Всё принятое и отправленное записывается в базу полётов (SessionStore)
            в момент события. Номер записи в базе (id) попадает в измерение и событие,
            которые уходят в интерфейс.
-    @note  Пока без пересчёта на 1 м и экспорта —
+    @note  Пока без экспорта CSV —
            они подключаются на следующих шагах.
 */
 
@@ -35,6 +35,7 @@ class SpectrumCollector;
 class AlarmManager;
 class SdImporter;
 class DoseGrid;
+class DoseCorrection;
 
 class CoreEngine : public QObject
 {
@@ -46,6 +47,7 @@ public:
                     nullptr (обычно) — CoreEngine создаёт свой.
     */
     explicit CoreEngine(DroneLink *link = nullptr, QObject *parent = nullptr);
+    ~CoreEngine() override;
 
     // ---------------------------------------------------------------- вызовы из DroneCore
     // Выполняются в потоке ядра.
@@ -116,6 +118,7 @@ private:
     AlarmManager  *m_alarms = nullptr;
     SdImporter    *m_sd = nullptr;
     DoseGrid      *m_grid = nullptr;         ///< тепловая карта текущего полёта
+    DoseCorrection *m_correction = nullptr;  ///< пересчёт на 1 м и флаги достоверности (не QObject)
 
     qint64         m_localAlarmId = 0;      ///< номер тревоги, если база не открыта: −1, −2, … (не пересекаются с номерами базы)
 
