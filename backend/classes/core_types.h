@@ -402,6 +402,7 @@ enum class EventCode : quint16 {
     UnknownId           = 0x100,    ///< неизвестный ID (params: msgId)
     BadLength           = 0x101,    ///< неверная длина Payload (params: msgId, length)
     BadValue            = 0x102,    ///< недопустимое значение в данных (params: msgId, field)
+    UnexpectedAnswer    = 0x103,    ///< ответ ID01–ID03, когда команда не ждёт ответа — например, опоздал (params: msgId)
     PortOpened          = 0x110,    ///< порт открыт (params: port)
     PortClosed          = 0x111,    ///< порт закрыт
     PortError           = 0x112,    ///< ошибка порта (params: text)

@@ -82,6 +82,19 @@ qt_add_executable(parser_test
 target_include_directories(parser_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
 target_link_libraries(parser_test PRIVATE Qt6::Core)
 
+
+# ---- commands_test: проверка DroneCommands без окна и без порта ----
+qt_add_executable(commands_test
+    tests/commands_test.cpp
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(commands_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(commands_test PRIVATE Qt6::Core Qt6::SerialPort)
+
+
+
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)
 

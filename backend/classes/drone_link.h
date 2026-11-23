@@ -78,19 +78,19 @@ public:
         @note   Пакет уходит m_commandCopies раз подряд одной пачкой:
                 логгер выполнит его один раз, а доставка надёжнее.
     */
-    SendResult send(quint8 id, const QByteArray &payload);
+    virtual SendResult send(quint8 id, const QByteArray &payload);
 
     /**
         @brief Можно ли сейчас отправлять: порт открыт и ответ на предыдущую
                команду получен (или с её отправки прошло 20 с — можно повторить).
     */
-    bool canSend() const;
+    virtual bool canSend() const;
 
     /**
         @brief Ответ на команду получен (ID01, ID02 или ID03) — снять ожидание.
         @note  Вызывает DroneCommands.
     */
-    void answerReceived();
+    virtual void answerReceived();
 
     // ---------------------------------------------------------------- настройки
 
