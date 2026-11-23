@@ -1,5 +1,6 @@
 #include "drone_commands.h"
 #include "drone_link.h"
+#include "recon_area.h"
 
 #include <cmath>
 #include <cstring>
@@ -72,6 +73,12 @@ void DroneCommands::send(const CommandRequest &request)
     const RejectReason bad = validate(request);
     if (bad != RejectReason::None) {
         reject(request, bad);
+        return;
+    }
+	
+	// ID04: полная проверка области — выпуклость, пересечения, размер и т. д.
+    if (request.id == 0x04 && !ReconArea::check(request.vertices, false, m_maxAreaKm).ok) {
+        reject(request, RejectReason::AreaNotValid);
         return;
     }
 
@@ -181,6 +188,12 @@ void DroneCommands::setReadOnly(bool on)
 void DroneCommands::setAnswerTimeoutMs(int ms)
 {
     m_timer->setInterval(qMax(1, ms));
+}
+
+
+void DroneCommands::setMaxAreaKm(double km)
+{
+    m_maxAreaKm = km;
 }
 
 // ============================================================================

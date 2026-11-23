@@ -43,6 +43,10 @@ qt_add_executable(DroneGroundStation
     backend/classes/core_types.cpp backend/classes/core_types.h
     backend/classes/drone_core.cpp backend/classes/drone_core.h
     backend/classes/core_stub.cpp backend/classes/core_stub.h
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
 )
 
 target_include_directories(DroneGroundStation
@@ -88,12 +92,23 @@ qt_add_executable(commands_test
     tests/commands_test.cpp
     backend/classes/drone_commands.cpp backend/classes/drone_commands.h
     backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
     backend/classes/core_types.cpp backend/classes/core_types.h
 )
 target_include_directories(commands_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
 target_link_libraries(commands_test PRIVATE Qt6::Core Qt6::SerialPort)
 
 
+# ---- area_test: проверка ReconArea без окна ----
+qt_add_executable(area_test
+    tests/area_test.cpp
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(area_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(area_test PRIVATE Qt6::Core Qt6::SerialPort)
 
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)

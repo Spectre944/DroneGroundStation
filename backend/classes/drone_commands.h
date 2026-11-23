@@ -48,6 +48,7 @@ public:
     void setRadioSilence(bool on);              ///< идёт радиомолчание: разрешена только ID14
     void setReadOnly(bool on);                  ///< открыт прошлый полёт — команды не отправляются
     void setAnswerTimeoutMs(int ms);            ///< сколько ждать ответа; по умолчанию 20 с
+	void setMaxAreaKm(double km);               ///< наибольший размер области для ID04, км (настройка)
 
     bool isWaiting() const { return m_waiting; }    ///< ждём ответ на команду
 
@@ -85,6 +86,7 @@ private:
     bool           m_allowedKnown = false;  ///< список получен; до этого разрешены все
     bool           m_radioSilence = false;
     bool           m_readOnly = false;
+	double         m_maxAreaKm = 50.0;  ///< наибольший размер области для ID04, км
 };
 
 #endif // DRONE_COMMANDS_H
