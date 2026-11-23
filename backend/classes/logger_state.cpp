@@ -239,6 +239,15 @@ void LoggerState::onMeasurement(const Measurement &m)
     publish();
 }
 
+void LoggerState::onSpectrumStopped()
+{
+    if (m_status.spectrumStage == SpectrumStage::None)
+        return;
+    m_status.spectrumStage = SpectrumStage::None;
+    publish();
+}
+
+
 void LoggerState::reset()
 {
     m_status = LoggerStatus();

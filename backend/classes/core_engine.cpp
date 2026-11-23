@@ -5,12 +5,14 @@
 #include "logger_state.h"
 #include "recon_area.h"
 #include "session_store.h"
+#include "spectrum_collector.h"
 
 #include <QCoreApplication>
 #include <QDir>
 
 namespace {
     constexpr quint8 CmdArea = 0x04;        ///< ID04 — параметры разведки
+    constexpr quint8 CmdSpectrumTime = 0x0B;    ///< ID11 — время набора спектра
     const char DefaultDbFile[] = "flights.db";  ///< база полётов по умолчанию — рядом с программой
 }
 
@@ -27,6 +29,7 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     m_commands = new DroneCommands(m_link, this);
     m_state    = new LoggerState(this);
     m_store    = new SessionStore(this);
+    m_spectra  = new SpectrumCollector(this);
 
     // ---- приём: порт → база, разбор ----
     connect(m_link, &DroneLink::rawData,            m_store,  &SessionStore::saveRaw);      // сырой журнал (Ф1)
@@ -41,6 +44,8 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     connect(m_parser, &MessageParser::routePoint,     this,       &CoreEngine::onRoutePoint);
     connect(m_parser, &MessageParser::measurement,    this,       &CoreEngine::onMeasurement);
     connect(m_parser, &MessageParser::event,          this,       &CoreEngine::onEvent);
+    connect(m_parser, &MessageParser::spectrumStarted, m_spectra, &SpectrumCollector::onStart);
+    connect(m_parser, &MessageParser::spectrumPortion, m_spectra, &SpectrumCollector::onPortion);
 
     // ---- команды → состояние, база, наружу ----
     connect(m_commands, &DroneCommands::commandFinished, this, &CoreEngine::onCommandFinished);
@@ -53,6 +58,12 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     connect(m_state, &LoggerState::modeChanged,            m_parser,   &MessageParser::setLoggerMode);
     connect(m_state, &LoggerState::statusChanged,          this,       &CoreEngine::onLoggerStatus);
     connect(m_state, &LoggerState::allowedCommandsChanged, this,       &CoreEngine::allowedCommandsChanged);
+    connect(m_state, &LoggerState::spectrumFinished,       m_spectra,  &SpectrumCollector::finish);
+
+    // ---- спектры → состояние, база, наружу ----
+    connect(m_spectra, &SpectrumCollector::stoppedByItself, m_state, &LoggerState::onSpectrumStopped);
+    connect(m_spectra, &SpectrumCollector::spectrumUpdated,  this,   &CoreEngine::spectrumUpdated);
+    connect(m_spectra, &SpectrumCollector::spectrumFinished, this,   &CoreEngine::onSpectrumFinished);
 
     // ---- база → наружу ----
     connect(m_store, &SessionStore::sessionStarted,  this, &CoreEngine::sessionStarted);
@@ -95,6 +106,7 @@ void CoreEngine::openPort(const QString &name)
 {
     // Новый сеанс связи: что было с логгером раньше — неизвестно
     m_state->reset();
+    m_spectra->reset();
     m_acceptedArea.clear();
     ensureDb();                             // дальше всё принятое — в базу
 
@@ -140,6 +152,13 @@ void CoreEngine::onEvent(const CoreEvent &e)
     emit event(saved);
 }
 
+void CoreEngine::onSpectrumFinished(const Spectrum &spectrum)
+{
+    Spectrum saved = spectrum;
+    saved.info.id = m_store->saveSpectrum(spectrum);   // итог и все порции — одной транзакцией
+    emit spectrumFinished(saved);
+}
+
 void CoreEngine::onLoggerStatus(const LoggerStatus &status)
 {
     m_store->setNoSd(status.noSd);          // полёт без SD — отметка в списке полётов
@@ -167,7 +186,10 @@ void CoreEngine::onCommandFinished(const CommandOutcome &outcome)
     if (outcome.request.id == CmdArea && outcome.result == CommandResult::Done) {
         m_acceptedArea = outcome.request.vertices;
         m_store->saveArea(outcome.request, outcome.finishTime);
+        m_spectra->setDuration(outcome.request.spectrumS);     // время набора спектра из ID04
     }
+    if (outcome.request.id == CmdSpectrumTime && outcome.result == CommandResult::Done)
+        m_spectra->setDuration(quint16(outcome.request.value)); // ID11
 
     emit commandFinished(outcome);
 }

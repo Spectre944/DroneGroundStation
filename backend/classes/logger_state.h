@@ -45,6 +45,14 @@ public:
     */
     void onMeasurement(const Measurement &m);
 
+
+    /**
+        @brief Набор спектра окончен по решению SpectrumCollector (канал 55705 или время).
+        @note  Логгер об этом не сообщает: снимается «идёт набор», команды — как без набора.
+               spectrumFinished не выдаётся — SpectrumCollector уже закрыл набор.
+    */
+    void onSpectrumStopped();
+
     /**
         @brief Сброс: режим «неизвестен», приборы «не проверялись».
         @note  При открытии порта и новом полёте.

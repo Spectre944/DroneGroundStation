@@ -65,8 +65,10 @@ DroneCore::DroneCore(QObject *parent)
     connect(m_engine, &CoreEngine::linkStatusChanged,      this, &DroneCore::linkStatusChanged);
     connect(m_engine, &CoreEngine::loggerStatusChanged,    this, &DroneCore::loggerStatusChanged);
     connect(m_engine, &CoreEngine::allowedCommandsChanged, this, &DroneCore::allowedCommandsChanged);
-    connect(m_engine, &CoreEngine::routePoint,             this, &DroneCore::routePoint);
+    connect(m_engine, &CoreEngine::routePoint,             this, &DroneCore::routePoint);    
     connect(m_engine, &CoreEngine::measurement,            this, &DroneCore::measurement);
+    connect(m_engine, &CoreEngine::spectrumUpdated,        this, &DroneCore::spectrumUpdated);
+    connect(m_engine, &CoreEngine::spectrumFinished,       this, &DroneCore::spectrumFinished);
     connect(m_engine, &CoreEngine::event,                  this, &DroneCore::event);
     connect(m_engine, &CoreEngine::coreError,              this, &DroneCore::coreError);
     connect(m_engine, &CoreEngine::commandFinished,        this, &DroneCore::commandFinished);

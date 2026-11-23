@@ -59,6 +59,7 @@ qt_add_executable(DroneGroundStation
     backend/classes/logger_state.cpp backend/classes/logger_state.h
     backend/classes/core_engine.cpp backend/classes/core_engine.h
     backend/classes/session_store.cpp backend/classes/session_store.h
+    backend/classes/spectrum_collector.cpp backend/classes/spectrum_collector.h
 )
 
 target_include_directories(DroneGroundStation
@@ -139,6 +140,7 @@ qt_add_executable(engine_test
     tests/engine_test.cpp
     backend/classes/core_engine.cpp backend/classes/core_engine.h
     backend/classes/session_store.cpp backend/classes/session_store.h
+    backend/classes/spectrum_collector.cpp backend/classes/spectrum_collector.h
     backend/classes/drone_link.cpp backend/classes/drone_link.h
     backend/classes/message_parser.cpp backend/classes/message_parser.h
     backend/classes/drone_commands.cpp backend/classes/drone_commands.h
@@ -159,6 +161,23 @@ qt_add_executable(session_test
 )
 target_include_directories(session_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
 target_link_libraries(session_test PRIVATE Qt6::Core Qt6::Sql)
+
+
+# ---- spectrum_test: проверка SpectrumCollector и спектров через всю цепочку ядра ----
+qt_add_executable(spectrum_test
+    tests/spectrum_test.cpp
+    backend/classes/spectrum_collector.cpp backend/classes/spectrum_collector.h
+    backend/classes/core_engine.cpp backend/classes/core_engine.h
+    backend/classes/session_store.cpp backend/classes/session_store.h
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/drone_commands.cpp backend/classes/drone_commands.h
+    backend/classes/logger_state.cpp backend/classes/logger_state.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(spectrum_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(spectrum_test PRIVATE Qt6::Core Qt6::SerialPort Qt6::Sql)
 
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)

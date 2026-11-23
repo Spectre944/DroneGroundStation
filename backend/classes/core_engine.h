@@ -4,7 +4,7 @@
 /**
     @file  core_engine.h
     @brief Настоящее ядро: цепочка DroneLink → MessageParser → LoggerState,
-           DroneCommands, ReconArea, SessionStore — соединённые по схеме
+           DroneCommands, ReconArea, SessionStore, SpectrumCollector — соединённые по схеме
            «Классов ядра», разд. 4.
 
     Устроено как заглушка CoreStub: те же методы и сигналы. DroneCore
@@ -15,7 +15,7 @@
     @note  Всё принятое и отправленное записывается в базу полётов (SessionStore)
            в момент события. Номер записи в базе (id) попадает в измерение и событие,
            которые уходят в интерфейс.
-    @note  Пока без спектров, тревог, SD, пересчёта на 1 м, сетки и экспорта —
+    @note  Пока без тревог, SD, пересчёта на 1 м, сетки и экспорта —
            они подключаются на следующих шагах.
 */
 
@@ -29,6 +29,7 @@ class MessageParser;
 class DroneCommands;
 class LoggerState;
 class SessionStore;
+class SpectrumCollector;
 
 class CoreEngine : public QObject
 {
@@ -67,6 +68,8 @@ signals:
     void allowedCommandsChanged(const QList<quint8> &ids);
     void routePoint(const RoutePoint &point);
     void measurement(const Measurement &m);
+    void spectrumUpdated(const Spectrum &spectrum);
+    void spectrumFinished(const Spectrum &spectrum);
     void event(const CoreEvent &e);
     void coreError(const QString &source, const QString &text);
     void commandFinished(const CommandOutcome &outcome);
@@ -85,6 +88,7 @@ private:
     void onRoutePoint(const RoutePoint &point);
     void onMeasurement(const Measurement &m);
     void onEvent(const CoreEvent &e);
+    void onSpectrumFinished(const Spectrum &spectrum);
     void onLoggerStatus(const LoggerStatus &status);
     void onPortError(const QString &text);
     void sendEvent(EventCode code, const QVariantMap &params = {});
@@ -94,6 +98,7 @@ private:
     DroneCommands *m_commands = nullptr;
     LoggerState   *m_state = nullptr;
     SessionStore  *m_store = nullptr;
+    SpectrumCollector *m_spectra = nullptr;
 
     CoreSettings      m_settings;           ///< последние настройки
     QVector<GeoPoint> m_acceptedArea;       ///< принятая логгером область
