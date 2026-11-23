@@ -81,6 +81,8 @@ DroneCore::DroneCore(QObject *parent)
     connect(m_engine, &CoreEngine::sessionData,            this, &DroneCore::sessionData);
     connect(m_engine, &CoreEngine::archiveResult,          this, &DroneCore::archiveResult);
     connect(m_engine, &CoreEngine::timeSeriesReady,        this, &DroneCore::timeSeriesReady);
+    connect(m_engine, &CoreEngine::sdProgress,             this, &DroneCore::sdProgress);
+    connect(m_engine, &CoreEngine::sdImported,             this, &DroneCore::sdImported);
 
     m_thread.start();
 }
@@ -231,7 +233,10 @@ void DroneCore::requestTimeSeries(qint64 sessionId)
 
 void DroneCore::importSd(const QStringList &files)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, files] { stub->importSd(files); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, files] { stub->importSd(files); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, files] { engine->importSd(files); });
 }
 
 void DroneCore::exportCsv(qint64 sessionId, const QString &folder, quint32 parts)

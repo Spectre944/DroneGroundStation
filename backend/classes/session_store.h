@@ -56,6 +56,14 @@ public:
     */
     bool ensureSession();
 
+    /**
+        @brief Продолжить запись в уже существующий полёт (для данных с SD).
+        @note  Время окончания полёта не меняется. После — releaseSession().
+    */
+    bool resumeSession(qint64 sessionId);
+    void releaseSession();                      ///< перестать писать в полёт, не трогая время окончания
+    qint64 lastSessionId();                     ///< последний начатый полёт; 0 — полётов нет
+
     // ---------------------------------------------------------------- запись (в момент события)
     // Без открытой базы — ничего не делают. Возвращают номер записи (0 — не записано).
 
@@ -82,6 +90,7 @@ public:
     void timeSeries(qint64 sessionId);                  ///< → timeSeriesReady (Ф11)
 
     QVector<SessionInfo> sessions();                    ///< список полётов (без сигнала)
+    QVector<Packet> packetsOf(qint64 sessionId);        ///< принятые пакеты полёта, по порядку приёма — для сверки с SD
     SessionData sessionDataFor(qint64 sessionId);       ///< все данные полёта (без сигнала)
 
 signals:

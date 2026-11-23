@@ -61,6 +61,7 @@ qt_add_executable(DroneGroundStation
     backend/classes/session_store.cpp backend/classes/session_store.h
     backend/classes/spectrum_collector.cpp backend/classes/spectrum_collector.h
     backend/classes/alarm_manager.cpp backend/classes/alarm_manager.h
+    backend/classes/sd_importer.cpp backend/classes/sd_importer.h
 )
 
 target_include_directories(DroneGroundStation
@@ -143,6 +144,7 @@ qt_add_executable(engine_test
     backend/classes/session_store.cpp backend/classes/session_store.h
     backend/classes/spectrum_collector.cpp backend/classes/spectrum_collector.h
     backend/classes/alarm_manager.cpp backend/classes/alarm_manager.h
+    backend/classes/sd_importer.cpp backend/classes/sd_importer.h
     backend/classes/drone_link.cpp backend/classes/drone_link.h
     backend/classes/message_parser.cpp backend/classes/message_parser.h
     backend/classes/drone_commands.cpp backend/classes/drone_commands.h
@@ -170,6 +172,7 @@ qt_add_executable(spectrum_test
     tests/spectrum_test.cpp
     backend/classes/spectrum_collector.cpp backend/classes/spectrum_collector.h
     backend/classes/alarm_manager.cpp backend/classes/alarm_manager.h
+    backend/classes/sd_importer.cpp backend/classes/sd_importer.h
     backend/classes/core_engine.cpp backend/classes/core_engine.h
     backend/classes/session_store.cpp backend/classes/session_store.h
     backend/classes/drone_link.cpp backend/classes/drone_link.h
@@ -186,6 +189,7 @@ target_link_libraries(spectrum_test PRIVATE Qt6::Core Qt6::SerialPort Qt6::Sql)
 qt_add_executable(alarm_test
     tests/alarm_test.cpp
     backend/classes/alarm_manager.cpp backend/classes/alarm_manager.h
+    backend/classes/sd_importer.cpp backend/classes/sd_importer.h
     backend/classes/core_engine.cpp backend/classes/core_engine.h
     backend/classes/session_store.cpp backend/classes/session_store.h
     backend/classes/spectrum_collector.cpp backend/classes/spectrum_collector.h
@@ -198,6 +202,18 @@ qt_add_executable(alarm_test
 )
 target_include_directories(alarm_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
 target_link_libraries(alarm_test PRIVATE Qt6::Core Qt6::SerialPort Qt6::Sql)
+
+# ---- sd_test: проверка SdImporter (обработка SD после полёта) ----
+qt_add_executable(sd_test
+    tests/sd_test.cpp
+    backend/classes/sd_importer.cpp backend/classes/sd_importer.h
+    backend/classes/session_store.cpp backend/classes/session_store.h
+    backend/classes/message_parser.cpp backend/classes/message_parser.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(sd_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(sd_test PRIVATE Qt6::Core Qt6::Sql)
 
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)

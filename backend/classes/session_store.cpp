@@ -306,6 +306,33 @@ bool SessionStore::ensureSession()
     return hasSession();
 }
 
+bool SessionStore::resumeSession(qint64 sessionId)
+{
+    if (!isOpen())
+        return false;
+    for (const SessionInfo &s : sessions()) {
+        if (s.id == sessionId) {
+            m_session = s;
+            return true;
+        }
+    }
+    return false;
+}
+
+void SessionStore::releaseSession()
+{
+    m_session = SessionInfo();
+}
+
+qint64 SessionStore::lastSessionId()
+{
+    if (!isOpen())
+        return 0;
+    QSqlQuery q(m_db);
+    return (q.exec(QStringLiteral("SELECT id FROM sessions ORDER BY start_ms DESC, id DESC LIMIT 1")) && q.next())
+        ? q.value(0).toLongLong() : 0;
+}
+
 // ============================================================================
 //  Запись
 // ============================================================================
@@ -609,6 +636,28 @@ QVector<SessionInfo> SessionStore::sessions()
         s.noSd             = q.value(4).toInt() != 0;
         s.measurementCount = q.value(5).toInt();
         list.append(s);
+    }
+    return list;
+}
+
+QVector<Packet> SessionStore::packetsOf(qint64 sessionId)
+{
+    QVector<Packet> list;
+    if (!isOpen())
+        return list;
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("SELECT msg_id, payload, time_ms FROM packets WHERE session_id = ? ORDER BY id"));
+    q.addBindValue(sessionId);
+    if (!q.exec()) {
+        emit dbError(q.lastError().text());
+        return list;
+    }
+    while (q.next()) {
+        Packet p;
+        p.id      = quint8(q.value(0).toUInt());
+        p.payload = q.value(1).toByteArray();
+        p.rxTime  = fromMs(q.value(2));
+        list.append(p);
     }
     return list;
 }

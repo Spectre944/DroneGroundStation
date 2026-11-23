@@ -7,6 +7,7 @@
 #include "session_store.h"
 #include "spectrum_collector.h"
 #include "alarm_manager.h"
+#include "sd_importer.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -32,6 +33,7 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     m_store    = new SessionStore(this);
     m_spectra  = new SpectrumCollector(this);
     m_alarms   = new AlarmManager(this);
+    m_sd       = new SdImporter(m_store, this);
 
     // ---- приём: порт → база, разбор ----
     connect(m_link, &DroneLink::rawData,            m_store,  &SessionStore::saveRaw);      // сырой журнал (Ф1)
@@ -81,6 +83,8 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     connect(m_store, &SessionStore::sessionData,     this, &CoreEngine::sessionData);
     connect(m_store, &SessionStore::archiveResult,   this, &CoreEngine::archiveResult);
     connect(m_store, &SessionStore::timeSeriesReady, this, &CoreEngine::timeSeriesReady);
+    connect(m_sd, &SdImporter::progress, this, &CoreEngine::sdProgress);
+    connect(m_sd, &SdImporter::imported, this, &CoreEngine::sdImported);
     connect(m_store, &SessionStore::dbError, this, [this](const QString &text) {
         emit coreError(QStringLiteral("db"), text);
     });
@@ -270,6 +274,16 @@ void CoreEngine::requestTimeSeries(qint64 sessionId)
 {
     if (ensureDb())
         m_store->timeSeries(sessionId);
+}
+
+/**
+    @brief Файлы SD: сверка с эфиром и дополнение базы.
+    @note  Выполняется в потоке ядра; интерфейс не замирает, ход — sdProgress.
+*/
+void CoreEngine::importSd(const QStringList &files)
+{
+    if (ensureDb())
+        m_sd->importFiles(files);
 }
 
 // ============================================================================

@@ -4,7 +4,8 @@
 /**
     @file  core_engine.h
     @brief Настоящее ядро: цепочка DroneLink → MessageParser → LoggerState,
-           DroneCommands, ReconArea, SessionStore, SpectrumCollector, AlarmManager —
+           DroneCommands, ReconArea, SessionStore, SpectrumCollector, AlarmManager,
+           SdImporter —
            соединённые по схеме
            «Классов ядра», разд. 4.
 
@@ -16,7 +17,7 @@
     @note  Всё принятое и отправленное записывается в базу полётов (SessionStore)
            в момент события. Номер записи в базе (id) попадает в измерение и событие,
            которые уходят в интерфейс.
-    @note  Пока без SD, пересчёта на 1 м, сетки и экспорта —
+    @note  Пока без пересчёта на 1 м, сетки и экспорта —
            они подключаются на следующих шагах.
 */
 
@@ -32,6 +33,7 @@ class LoggerState;
 class SessionStore;
 class SpectrumCollector;
 class AlarmManager;
+class SdImporter;
 
 class CoreEngine : public QObject
 {
@@ -60,6 +62,7 @@ public:
     void queryArchive(const SessionFilter &filter);     ///< → archiveResult
     void requestTimeSeries(qint64 sessionId);           ///< → timeSeriesReady
     void acknowledgeAlarm(qint64 alarmId);              ///< оператор увидел тревогу → база, alarmAcknowledged
+    void importSd(const QStringList &files);            ///< файлы SD → сверка, база; ход — sdProgress, итог — sdImported
 
     QVector<GeoPoint> acceptedArea() const { return m_acceptedArea; }   ///< область, принятая логгером (ID01 на ID04)
     SessionStore *store() const { return m_store; }     ///< для проверки (engine_test, session_test)
@@ -86,6 +89,8 @@ signals:
     void sessionData(const SessionData &data);
     void archiveResult(const ArchiveResult &result);
     void timeSeriesReady(qint64 sessionId, const QVector<Measurement> &series);
+    void sdProgress(int percent);
+    void sdImported(const SdReport &report);
 
 private:
     bool ensureDb();                                    ///< база открыта? если нет — открыть (путь из настроек)
@@ -106,6 +111,7 @@ private:
     SessionStore  *m_store = nullptr;
     SpectrumCollector *m_spectra = nullptr;
     AlarmManager  *m_alarms = nullptr;
+    SdImporter    *m_sd = nullptr;
 
     qint64         m_localAlarmId = 0;      ///< номер тревоги, если база не открыта: −1, −2, … (не пересекаются с номерами базы)
 
