@@ -4,14 +4,18 @@
 /**
     @file  core_engine.h
     @brief Настоящее ядро: цепочка DroneLink → MessageParser → LoggerState,
-           DroneCommands, ReconArea — соединённые по схеме «Классов ядра», разд. 4.
+           DroneCommands, ReconArea, SessionStore — соединённые по схеме
+           «Классов ядра», разд. 4.
 
     Устроено как заглушка CoreStub: те же методы и сигналы. DroneCore
     выбирает, с кем работать: «STUB» — заглушка, имя COM-порта — CoreEngine.
 
     @note  Живёт в потоке ядра (DroneCore переносит его через moveToThread).
            Все классы цепочки — его дочерние объекты и переезжают вместе с ним.
-    @note  Пока без спектров, тревог, базы, SD, пересчёта на 1 м, сетки и экспорта —
+    @note  Всё принятое и отправленное записывается в базу полётов (SessionStore)
+           в момент события. Номер записи в базе (id) попадает в измерение и событие,
+           которые уходят в интерфейс.
+    @note  Пока без спектров, тревог, SD, пересчёта на 1 м, сетки и экспорта —
            они подключаются на следующих шагах.
 */
 
@@ -24,6 +28,7 @@ class DroneLink;
 class MessageParser;
 class DroneCommands;
 class LoggerState;
+class SessionStore;
 
 class CoreEngine : public QObject
 {
@@ -45,7 +50,15 @@ public:
     void checkArea(const QVector<GeoPoint> &vertices, bool isRoute);   ///< → ReconArea, ответ areaChecked
     void applySettings(const CoreSettings &settings);   ///< раздать настройки классам
 
+    void startSession(const QString &name);             ///< «Новый полёт»
+    void finishSession();                               ///< «Завершить полёт»
+    void listSessions();                                ///< → sessionsListed
+    void openSession(qint64 sessionId);                 ///< → sessionData
+    void queryArchive(const SessionFilter &filter);     ///< → archiveResult
+    void requestTimeSeries(qint64 sessionId);           ///< → timeSeriesReady
+
     QVector<GeoPoint> acceptedArea() const { return m_acceptedArea; }   ///< область, принятая логгером (ID01 на ID04)
+    SessionStore *store() const { return m_store; }     ///< для проверки (engine_test, session_test)
 
 signals:
     // Те же сигналы, что у DroneCore (часть) — описание в drone_core.h
@@ -59,8 +72,20 @@ signals:
     void commandFinished(const CommandOutcome &outcome);
     void areaChecked(const AreaCheck &check);
 
+    void sessionStarted(const SessionInfo &info);
+    void sessionFinished(const SessionInfo &info);
+    void sessionsListed(const QVector<SessionInfo> &list);
+    void sessionData(const SessionData &data);
+    void archiveResult(const ArchiveResult &result);
+    void timeSeriesReady(qint64 sessionId, const QVector<Measurement> &series);
+
 private:
+    bool ensureDb();                                    ///< база открыта? если нет — открыть (путь из настроек)
     void onCommandFinished(const CommandOutcome &outcome);
+    void onRoutePoint(const RoutePoint &point);
+    void onMeasurement(const Measurement &m);
+    void onEvent(const CoreEvent &e);
+    void onLoggerStatus(const LoggerStatus &status);
     void onPortError(const QString &text);
     void sendEvent(EventCode code, const QVariantMap &params = {});
 
@@ -68,8 +93,9 @@ private:
     MessageParser *m_parser = nullptr;
     DroneCommands *m_commands = nullptr;
     LoggerState   *m_state = nullptr;
+    SessionStore  *m_store = nullptr;
 
-    double            m_maxAreaKm = 50.0;   ///< из настроек
+    CoreSettings      m_settings;           ///< последние настройки
     QVector<GeoPoint> m_acceptedArea;       ///< принятая логгером область
 };
 
