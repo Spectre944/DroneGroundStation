@@ -63,6 +63,15 @@ target_link_libraries(DroneGroundStation
         Qt6::SerialPort
 )
 
+# ---- link_test: проверка DroneLink без окна (консольная программа) ----
+qt_add_executable(link_test
+    tests/link_test.cpp
+    backend/classes/drone_link.cpp backend/classes/drone_link.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(link_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(link_test PRIVATE Qt6::Core Qt6::SerialPort)
+
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)
 
