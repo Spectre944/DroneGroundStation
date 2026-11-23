@@ -71,6 +71,12 @@ DroneCore::DroneCore(QObject *parent)
     connect(m_engine, &CoreEngine::coreError,              this, &DroneCore::coreError);
     connect(m_engine, &CoreEngine::commandFinished,        this, &DroneCore::commandFinished);
     connect(m_engine, &CoreEngine::areaChecked,            this, &DroneCore::areaChecked);
+    connect(m_engine, &CoreEngine::sessionStarted,         this, &DroneCore::sessionStarted);
+    connect(m_engine, &CoreEngine::sessionFinished,        this, &DroneCore::sessionFinished);
+    connect(m_engine, &CoreEngine::sessionsListed,         this, &DroneCore::sessionsListed);
+    connect(m_engine, &CoreEngine::sessionData,            this, &DroneCore::sessionData);
+    connect(m_engine, &CoreEngine::archiveResult,          this, &DroneCore::archiveResult);
+    connect(m_engine, &CoreEngine::timeSeriesReady,        this, &DroneCore::timeSeriesReady);
 
     m_thread.start();
 }
@@ -164,38 +170,55 @@ void DroneCore::checkArea(const QVector<GeoPoint> &vertices, bool isRoute)
 
 // ============================================================================
 //  Сессии (Ф12) и архив
-//  Пока всегда в заглушку: у настоящего ядра их ещё нет (шаг 10),
-//  а интерфейсу нужны тестовые данные.
+//  Работает заглушка — её тестовые полёты; работает ядро — база полётов.
 // ============================================================================
 
 void DroneCore::startSession(const QString &name)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, name] { stub->startSession(name); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, name] { stub->startSession(name); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, name] { engine->startSession(name); });
 }
 
 void DroneCore::finishSession()
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub] { stub->finishSession(); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub] { stub->finishSession(); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine] { engine->finishSession(); });
 }
 
 void DroneCore::listSessions()
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub] { stub->listSessions(); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub] { stub->listSessions(); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine] { engine->listSessions(); });
 }
 
 void DroneCore::openSession(qint64 sessionId)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, sessionId] { stub->openSession(sessionId); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, sessionId] { stub->openSession(sessionId); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, sessionId] { engine->openSession(sessionId); });
 }
 
 void DroneCore::queryArchive(const SessionFilter &filter)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, filter] { stub->queryArchive(filter); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, filter] { stub->queryArchive(filter); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, filter] { engine->queryArchive(filter); });
 }
 
 void DroneCore::requestTimeSeries(qint64 sessionId)
 {
-    QMetaObject::invokeMethod(m_stub, [stub = m_stub, sessionId] { stub->requestTimeSeries(sessionId); });
+    if (m_useStub)
+        QMetaObject::invokeMethod(m_stub, [stub = m_stub, sessionId] { stub->requestTimeSeries(sessionId); });
+    else
+        QMetaObject::invokeMethod(m_engine, [engine = m_engine, sessionId] { engine->requestTimeSeries(sessionId); });
 }
 
 // ============================================================================

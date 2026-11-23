@@ -4,9 +4,14 @@
 #include "drone_commands.h"
 #include "logger_state.h"
 #include "recon_area.h"
+#include "session_store.h"
+
+#include <QCoreApplication>
+#include <QDir>
 
 namespace {
     constexpr quint8 CmdArea = 0x04;        ///< ID04 — параметры разведки
+    const char DefaultDbFile[] = "flights.db";  ///< база полётов по умолчанию — рядом с программой
 }
 
 /**
@@ -21,31 +26,65 @@ CoreEngine::CoreEngine(DroneLink *link, QObject *parent)
     m_parser   = new MessageParser(this);
     m_commands = new DroneCommands(m_link, this);
     m_state    = new LoggerState(this);
+    m_store    = new SessionStore(this);
 
-    // ---- приём: порт → разбор ----
+    // ---- приём: порт → база, разбор ----
+    connect(m_link, &DroneLink::rawData,            m_store,  &SessionStore::saveRaw);      // сырой журнал (Ф1)
+    connect(m_link, &DroneLink::packetReceived,     m_store,  &SessionStore::savePacket);   // пакет — для сверки с SD
     connect(m_link, &DroneLink::packetReceived,     m_parser, &MessageParser::parse);
     connect(m_link, &DroneLink::linkStatusChanged,  this,     &CoreEngine::linkStatusChanged);
     connect(m_link, &DroneLink::portError,          this,     &CoreEngine::onPortError);
 
-    // ---- разбор → команды, состояние, наружу ----
+    // ---- разбор → команды, состояние, база и наружу ----
     connect(m_parser, &MessageParser::answerReceived, m_commands, &DroneCommands::onAnswer);
     connect(m_parser, &MessageParser::loggerMessage,  m_state,    &LoggerState::onMessage);
-    connect(m_parser, &MessageParser::measurement,    m_state,    &LoggerState::onMeasurement);
-    connect(m_parser, &MessageParser::routePoint,     this,       &CoreEngine::routePoint);
-    connect(m_parser, &MessageParser::measurement,    this,       &CoreEngine::measurement);
-    connect(m_parser, &MessageParser::event,          this,       &CoreEngine::event);
+    connect(m_parser, &MessageParser::routePoint,     this,       &CoreEngine::onRoutePoint);
+    connect(m_parser, &MessageParser::measurement,    this,       &CoreEngine::onMeasurement);
+    connect(m_parser, &MessageParser::event,          this,       &CoreEngine::onEvent);
 
-    // ---- команды → состояние, наружу ----
+    // ---- команды → состояние, база, наружу ----
     connect(m_commands, &DroneCommands::commandFinished, this, &CoreEngine::onCommandFinished);
-    connect(m_commands, &DroneCommands::event,           this, &CoreEngine::event);
+    connect(m_commands, &DroneCommands::event,           this, &CoreEngine::onEvent);
 
     // ---- состояние → команды, порт, разбор, наружу ----
     connect(m_state, &LoggerState::allowedCommandsChanged, m_commands, &DroneCommands::setAllowed);
     connect(m_state, &LoggerState::radioSilenceChanged,    m_commands, &DroneCommands::setRadioSilence);
     connect(m_state, &LoggerState::radioSilenceChanged,    m_link,     &DroneLink::setQuietExpected);
     connect(m_state, &LoggerState::modeChanged,            m_parser,   &MessageParser::setLoggerMode);
-    connect(m_state, &LoggerState::statusChanged,          this,       &CoreEngine::loggerStatusChanged);
+    connect(m_state, &LoggerState::statusChanged,          this,       &CoreEngine::onLoggerStatus);
     connect(m_state, &LoggerState::allowedCommandsChanged, this,       &CoreEngine::allowedCommandsChanged);
+
+    // ---- база → наружу ----
+    connect(m_store, &SessionStore::sessionStarted,  this, &CoreEngine::sessionStarted);
+    connect(m_store, &SessionStore::sessionFinished, this, &CoreEngine::sessionFinished);
+    connect(m_store, &SessionStore::sessionsListed,  this, &CoreEngine::sessionsListed);
+    connect(m_store, &SessionStore::sessionData,     this, &CoreEngine::sessionData);
+    connect(m_store, &SessionStore::archiveResult,   this, &CoreEngine::archiveResult);
+    connect(m_store, &SessionStore::timeSeriesReady, this, &CoreEngine::timeSeriesReady);
+    connect(m_store, &SessionStore::dbError, this, [this](const QString &text) {
+        emit coreError(QStringLiteral("db"), text);
+    });
+}
+
+// ============================================================================
+//  База
+// ============================================================================
+
+/**
+    @brief Открыть базу при первой надобности: путь из настроек,
+           иначе flights.db рядом с программой.
+*/
+bool CoreEngine::ensureDb()
+{
+    if (m_store->isOpen())
+        return true;
+    const QString path = m_settings.dbPath.isEmpty()
+        ? QDir(QCoreApplication::applicationDirPath()).filePath(QString::fromLatin1(DefaultDbFile))
+        : m_settings.dbPath;
+    if (!m_store->open(path))
+        return false;
+    m_store->setThresholds(m_settings.warnLevel, m_settings.alarmLevel);
+    return true;
 }
 
 // ============================================================================
@@ -57,6 +96,7 @@ void CoreEngine::openPort(const QString &name)
     // Новый сеанс связи: что было с логгером раньше — неизвестно
     m_state->reset();
     m_acceptedArea.clear();
+    ensureDb();                             // дальше всё принятое — в базу
 
     if (m_link->open(name))
         sendEvent(EventCode::PortOpened, {{QStringLiteral("port"), name}});
@@ -76,6 +116,37 @@ void CoreEngine::onPortError(const QString &text)
 }
 
 // ============================================================================
+//  Данные от логгера: в базу, затем наружу — с номером записи
+// ============================================================================
+
+void CoreEngine::onRoutePoint(const RoutePoint &point)
+{
+    m_store->saveRoutePoint(point);
+    emit routePoint(point);
+}
+
+void CoreEngine::onMeasurement(const Measurement &m)
+{
+    Measurement saved = m;
+    saved.id = m_store->saveMeasurement(m);     // номер в базе — интерфейс по нему выделяет точку
+    m_state->onMeasurement(saved);
+    emit measurement(saved);
+}
+
+void CoreEngine::onEvent(const CoreEvent &e)
+{
+    CoreEvent saved = e;
+    saved.id = m_store->saveEvent(e);
+    emit event(saved);
+}
+
+void CoreEngine::onLoggerStatus(const LoggerStatus &status)
+{
+    m_store->setNoSd(status.noSd);          // полёт без SD — отметка в списке полётов
+    emit loggerStatusChanged(status);
+}
+
+// ============================================================================
 //  Команды и область
 // ============================================================================
 
@@ -85,22 +156,66 @@ void CoreEngine::sendCommand(const CommandRequest &request)
 }
 
 /**
-    @brief Итог команды: сначала LoggerState (режим), затем наружу.
-    @note  ID01 на ID04 — область принята логгером: запоминается.
+    @brief Итог команды: сначала LoggerState (режим), затем база, затем наружу.
+    @note  ID01 на ID04 — область принята логгером: запоминается и пишется в базу.
 */
 void CoreEngine::onCommandFinished(const CommandOutcome &outcome)
 {
     m_state->onCommandFinished(outcome);
+    m_store->saveCommand(outcome);
 
-    if (outcome.request.id == CmdArea && outcome.result == CommandResult::Done)
+    if (outcome.request.id == CmdArea && outcome.result == CommandResult::Done) {
         m_acceptedArea = outcome.request.vertices;
+        m_store->saveArea(outcome.request, outcome.finishTime);
+    }
 
     emit commandFinished(outcome);
 }
 
 void CoreEngine::checkArea(const QVector<GeoPoint> &vertices, bool isRoute)
 {
-    emit areaChecked(ReconArea::check(vertices, isRoute, m_maxAreaKm));
+    emit areaChecked(ReconArea::check(vertices, isRoute, m_settings.maxAreaKm));
+}
+
+// ============================================================================
+//  Полёты и архив
+// ============================================================================
+
+void CoreEngine::startSession(const QString &name)
+{
+    if (!ensureDb())
+        return;
+    m_store->startSession(name);
+    m_store->saveSettings(m_settings);      // с какими настройками шёл полёт
+}
+
+void CoreEngine::finishSession()
+{
+    m_store->finishSession();
+}
+
+void CoreEngine::listSessions()
+{
+    if (ensureDb())
+        m_store->listSessions();
+}
+
+void CoreEngine::openSession(qint64 sessionId)
+{
+    if (ensureDb())
+        m_store->loadSession(sessionId);
+}
+
+void CoreEngine::queryArchive(const SessionFilter &filter)
+{
+    if (ensureDb())
+        m_store->query(filter);
+}
+
+void CoreEngine::requestTimeSeries(qint64 sessionId)
+{
+    if (ensureDb())
+        m_store->timeSeries(sessionId);
 }
 
 // ============================================================================
@@ -109,13 +224,15 @@ void CoreEngine::checkArea(const QVector<GeoPoint> &vertices, bool isRoute)
 
 void CoreEngine::applySettings(const CoreSettings &settings)
 {
-    m_maxAreaKm = settings.maxAreaKm;
+    m_settings = settings;
     m_link->setLinkTimeout(settings.linkTimeoutS);
     m_commands->setMaxAreaKm(settings.maxAreaKm);
+    m_store->setThresholds(settings.warnLevel, settings.alarmLevel);
+    m_store->saveSettings(settings);        // идёт полёт — новые настройки тоже в базу
 }
 
 // ============================================================================
-//  События
+//  События ядра (порт открыт, закрыт, ошибка)
 // ============================================================================
 
 void CoreEngine::sendEvent(EventCode code, const QVariantMap &params)
@@ -124,5 +241,11 @@ void CoreEngine::sendEvent(EventCode code, const QVariantMap &params)
     e.code = code;
     e.time = QDateTime::currentDateTimeUtc();
     e.params = params;
-    emit event(e);
+
+    // «Порт закрыт» после «Завершить полёт» — не повод начинать новый полёт в базе
+    if (code == EventCode::PortClosed && !m_store->hasSession()) {
+        emit event(e);
+        return;
+    }
+    onEvent(e);
 }

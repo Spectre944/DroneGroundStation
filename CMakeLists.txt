@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(DroneGroundStation LANGUAGES CXX C)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat SerialPort)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat SerialPort Sql)
 
 qt_standard_project_setup()
 
@@ -49,6 +49,7 @@ qt_add_executable(DroneGroundStation
     backend/classes/recon_area.cpp backend/classes/recon_area.h
     backend/classes/logger_state.cpp backend/classes/logger_state.h
     backend/classes/core_engine.cpp backend/classes/core_engine.h
+    backend/classes/session_store.cpp backend/classes/session_store.h
 )
 
 target_include_directories(DroneGroundStation
@@ -67,6 +68,7 @@ target_link_libraries(DroneGroundStation
         Qt6::Svg
         Qt6::Core5Compat
         Qt6::SerialPort
+        Qt6::Sql
 )
 
 # ---- link_test: проверка DroneLink без окна (консольная программа) ----
@@ -127,6 +129,7 @@ target_link_libraries(state_test PRIVATE Qt6::Core)
 qt_add_executable(engine_test
     tests/engine_test.cpp
     backend/classes/core_engine.cpp backend/classes/core_engine.h
+    backend/classes/session_store.cpp backend/classes/session_store.h
     backend/classes/drone_link.cpp backend/classes/drone_link.h
     backend/classes/message_parser.cpp backend/classes/message_parser.h
     backend/classes/drone_commands.cpp backend/classes/drone_commands.h
@@ -135,7 +138,18 @@ qt_add_executable(engine_test
     backend/classes/core_types.cpp backend/classes/core_types.h
 )
 target_include_directories(engine_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
-target_link_libraries(engine_test PRIVATE Qt6::Core Qt6::SerialPort)
+target_link_libraries(engine_test PRIVATE Qt6::Core Qt6::SerialPort Qt6::Sql)
+
+
+# ---- session_test: проверка SessionStore (база полётов) без окна ----
+qt_add_executable(session_test
+    tests/session_test.cpp
+    backend/classes/session_store.cpp backend/classes/session_store.h
+    backend/classes/recon_area.cpp backend/classes/recon_area.h
+    backend/classes/core_types.cpp backend/classes/core_types.h
+)
+target_include_directories(session_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_link_libraries(session_test PRIVATE Qt6::Core Qt6::Sql)
 
 # add_library(sqlite3 STATIC db/sqlite3.c)
 # target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/db)
