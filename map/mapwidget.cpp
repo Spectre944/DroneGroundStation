@@ -438,7 +438,9 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
     // по кнопке «Відправити на дрон (ID04)» на странице — после ответа область станет активной.
     if (it->role == GeometryRole::Recon) {
         menu.addAction("Відкрити сторінку «Розвідка»", this, [this] { emit reconPrepareRequested(); });
-        menu.addAction("Зняти призначення розвідки", this, [this] { m_store->clearRecon(); });
+        // Активную (принятую логером) область снять нельзя — только «Дії → Закінчити розвідку» (ID08)
+        if (!sameAsActive(*it))
+            menu.addAction("Зняти призначення розвідки", this, [this] { m_store->clearRecon(); });
     } else if (tooMany) {
         menu.addAction(QString("Спростити до %1 точок і підготувати для розвідки").arg(maxV),
                        this, [this, id] {
