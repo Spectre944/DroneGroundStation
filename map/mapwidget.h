@@ -405,7 +405,7 @@ public:
 
     int  selectedId() const { return m_selectedId; }
     void select(int id);
-    void clearSelection() { select(-1); }
+    void clearSelection() { select(-1); }   // снимает и выделение активной области
 
     // Формат координат для подсказок и "Скопіювати координати" (выбирается в панели над картой)
     void setCoordType(CoordType type) { m_coordType = type; }
@@ -472,11 +472,13 @@ private:
     QVector<smappoint> m_active;  ///< область, принятая логером (ID04 «Виконано»)
     QDateTime          m_activeAt;
 
+    bool               m_activeSelected = false;   ///< выделена активная область (Ctrl+клик / ПКМ)
+
     bool sameAsActive(const GeometryItem &it) const;
+    bool activeContains(const QPoint &pos) const;
     void drawActive(QPainter &p);
-    /// Подпись области по центру; если область на экране мала — короткая метка или ничего
-    void drawAreaLabel(QPainter &p, const QVector<QPoint> &screen, const QString &title,
-                       const QString &shortTitle, const QStringList &lines, const QColor &accent);
+    /// Строки статуса для плашки: «Ще не відправлено» + проверка / «Прийнята логером о …»
+    QStringList reconStatusLines(const GeometryItem *it) const;
 };
 
 // ======================================================================

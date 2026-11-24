@@ -42,52 +42,6 @@ constexpr int POINT_TOL = 14;   // px, наведение на вершину
 constexpr int SEG_TOL   = 10;   // px, наведение на отрезок / клик по линии
 
 // Информационная плашка, рисуется прямо на карте. Если якорь вне экрана - не рисуем.
-// Размер плашки (заголовок + строки) — для раскладки подписи по размеру области
-QSize infoBoxSize(const QFont &base, const QString &title, const QStringList &lines)
-{
-    QFont f = base;
-    f.setPointSize(9);
-    f.setBold(false);
-    QFont fb = f;
-    fb.setBold(true);
-    const QFontMetrics fm(f), fmb(fb);
-    int w = fmb.horizontalAdvance(title);
-    for (const QString &l : lines)
-        w = qMax(w, fm.horizontalAdvance(l));
-    const int pad = 8;
-    return QSize(w + 2 * pad, fmb.height() + int(lines.size()) * fm.height() + 2 * pad);
-}
-
-void paintInfoBox(QPainter &p, const QRect &r, const QString &title,
-                  const QStringList &lines, const QColor &accent, Qt::PenStyle border = Qt::SolidLine)
-{
-    p.save();
-    QFont f = p.font();
-    f.setPointSize(9);
-    f.setBold(false);
-    QFont fb = f;
-    fb.setBold(true);
-    const QFontMetrics fm(f), fmb(fb);
-    const int pad = 8;
-
-    p.setPen(QPen(accent, 2, border));
-    p.setBrush(QColor(255, 255, 255, 240));
-    p.drawRoundedRect(r, 6, 6);
-
-    p.setFont(fb);
-    p.setPen(accent.darker(130));
-    p.drawText(r.left() + pad, r.top() + pad + fmb.ascent(), title);
-
-    p.setFont(f);
-    p.setPen(QColor(0x33, 0x33, 0x33));
-    int y = r.top() + pad + fmb.height() + fm.ascent();
-    for (const QString &l : lines) {
-        p.drawText(r.left() + pad, y, l);
-        y += fm.height();
-    }
-    p.restore();
-}
-
 void drawInfoBox(QPainter &p, const QPoint &anchor, const QString &title,
                  const QStringList &lines, const QColor &accent, const QRect &bounds)
 {
@@ -191,9 +145,10 @@ void GeometryLayer::select(int id)
 {
     if (id >= 0 && !m_store->find(id))
         id = -1;
-    if (id == m_selectedId)
+    if (id == m_selectedId && !m_activeSelected)
         return;
 
+    m_activeSelected = false;
     m_selectedId = id;
     m_hoverPoint = m_hoverSegment = -1;
     m_tip = InfoBox();
@@ -271,12 +226,33 @@ QVector<smappoint> mapgeo::simplifyPolygon(const QVector<smappoint> &poly, int m
 void GeometryLayer::refreshSummary()
 {
     m_summary = InfoBox();
+
+    // Выделена активная область (её нет в GeometryStore — только вершины от логера)
+    if (m_activeSelected && m_active.size() >= 3) {
+        m_summary.title = QStringLiteral("Активна область розвідки");
+        m_summary.lines << reconStatusLines(nullptr)
+                        << QString("Площа: %1 км²").arg(mapgeo::areaKm2(m_active), 0, 'f', 2)
+                        << QString("Точок: %1").arg(m_active.size());
+        m_summary.valid = true;
+        m_summaryAnchor = mapgeo::centroid(m_active);
+        return;
+    }
+
     const GeometryItem *it = m_store->find(m_selectedId);
     if (!it || it->points.size() < 2)
         return;
 
     const bool poly = it->kind == GeometryKind::Polygon;
-    m_summary.title = QString(poly ? "Полігон #%1" : "Лінія #%1").arg(m_store->ordinal(it->id));
+    const bool recon = it->role == GeometryRole::Recon;
+    if (recon && poly)
+        m_summary.title = sameAsActive(*it) ? QStringLiteral("Активна область розвідки")
+                                            : QStringLiteral("Чернетка області розвідки");
+    else if (recon)
+        m_summary.title = QStringLiteral("Маршрут розвідки (чернетка)");
+    else
+        m_summary.title = QString(poly ? "Полігон #%1" : "Лінія #%1").arg(m_store->ordinal(it->id));
+    if (recon)
+        m_summary.lines << reconStatusLines(it);
 
     if (poly) {
         m_summary.lines << QString("Площа: %1 км²").arg(mapgeo::areaKm2(it->points), 0, 'f', 2)
@@ -288,9 +264,6 @@ void GeometryLayer::refreshSummary()
     if (poly && it->points.size() > CoreConst::AreaMaxVertices)
         m_summary.lines << QString("⚠ Для розвідки — не більше %1 точок (ПКМ → «Спростити»)")
                                .arg(CoreConst::AreaMaxVertices);
-    if (it->role == GeometryRole::Recon)
-        m_summary.lines << (poly ? "★ Область розвідки" : "★ Маршрут розвідки");
-
     m_summary.valid = true;
     m_summaryAnchor = anchorOf(*it);
 }
@@ -389,19 +362,27 @@ bool GeometryLayer::mouseRelease(QMouseEvent *e)
 
     if (ctrl) {
         const int id = hitTest(e->pos());
+        if (id < 0 && activeContains(e->pos())) {
+            const bool was = m_activeSelected;
+            select(-1);
+            m_activeSelected = !was;     // Ctrl+клик по активной области — выделить / снять
+            refreshSummary();
+            emit updateRequested();
+            return true;
+        }
         select(id == m_selectedId ? -1 : id);
         return id >= 0;
     }
 
     // Обычный клик "в пустоту" снимает выделение, но событие не съедает
-    if (m_selectedId >= 0)
+    if (m_selectedId >= 0 || m_activeSelected)
         clearSelection();
     return false;
 }
 
 bool GeometryLayer::keyPress(QKeyEvent *e)
 {
-    if (e->key() == Qt::Key_Escape && m_selectedId >= 0) {
+    if (e->key() == Qt::Key_Escape && (m_selectedId >= 0 || m_activeSelected)) {
         clearSelection();
         return true;
     }
@@ -415,6 +396,26 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
     const int id = hitTest(pos);
     if (id < 0) {
         clearSelection();
+        if (activeContains(pos)) {
+            // Активная область — только сведения и координаты (удалять/менять нельзя)
+            m_activeSelected = true;
+            refreshSummary();
+            emit updateRequested();
+            const QVector<smappoint> pts = m_active;
+            const CoordType type = m_coordType;
+            menu.addAction("Скопіювати координати активної області", this, [pts, type] {
+                QString text;
+                for (const smappoint &pt : pts)
+                    text += QString("WGS84:%1,%2/").arg(pt.latt, 0, 'f', 6).arg(pt.longt, 0, 'f', 6);
+                text += "/";
+                if (type != CoordType::WGS84_String) {
+                    const QPair<bool, QString> conv = CoordHandler::convertPackageCoords(text, type);
+                    if (conv.first)
+                        text = conv.second;
+                }
+                QApplication::clipboard()->setText(text);
+            });
+        }
         return;
     }
 
@@ -559,20 +560,7 @@ void GeometryLayer::drawItem(QPainter &p, const GeometryItem &it)
         drawPointLabel(p, m_reconBadVertex + 1, v, QColor(0xE5, 0x48, 0x4D));
     }
 
-    // Подпись — только если фигура не выделена (у выделенной всё есть в плашке)
-    if (recon && it.id != m_selectedId) {
-        QStringList lines;
-        if (it.kind == GeometryKind::Polygon && it.points.size() > CoreConst::AreaMaxVertices)
-            lines << QString("⚠ %1 точок, логер приймає до %2")
-                         .arg(it.points.size()).arg(CoreConst::AreaMaxVertices);
-        if (m_reconCheck == 0 && !m_reconError.isEmpty())
-            lines << QStringLiteral("✕ ") + m_reconError;
-        else if (m_reconCheck == 1)
-            lines << QStringLiteral("✓ Перевірку пройдено");
-        lines << QStringLiteral("Ще не відправлено на дрон");
-        drawAreaLabel(p, s, it.kind == GeometryKind::Polygon ? "Чернетка розвідки" : "Маршрут розвідки",
-                      QStringLiteral("Чернетка"), lines, reconColor);
-    }
+    // Постоянной подписи нет: черновик узнаётся по пунктиру, статус — в плашке при выделении
 }
 
 bool GeometryLayer::sameAsActive(const GeometryItem &it) const
@@ -590,6 +578,9 @@ void GeometryLayer::setActiveRecon(const QVector<smappoint> &points, const QDate
 {
     m_active = points;
     m_activeAt = acceptedAt;
+    if (m_active.isEmpty())
+        m_activeSelected = false;
+    refreshSummary();
     emit updateRequested();
 }
 
@@ -603,58 +594,37 @@ void GeometryLayer::drawActive(QPainter &p)
     for (const smappoint &pt : std::as_const(m_active))
         s << mapgeo::toScreen(pt);
 
+    if (m_activeSelected) {
+        p.setPen(QPen(m_highlight, 6));
+        p.setBrush(Qt::NoBrush);
+        p.drawPolygon(s.constData(), s.size());
+    }
     p.setPen(QPen(m_reconColor, 3));
     p.setBrush(m_reconFill);
     p.drawPolygon(s.constData(), s.size());
-
-    const QString time = m_activeAt.isValid() ? m_activeAt.toLocalTime().toString("HH:mm") : QString();
-    drawAreaLabel(p, s, QStringLiteral("Активна область розвідки"), QStringLiteral("Розвідка"),
-                  { time.isEmpty() ? QStringLiteral("Прийнята логером")
-                                   : QStringLiteral("Прийнята логером о %1").arg(time) },
-                  m_reconColor);
 }
 
-void GeometryLayer::drawAreaLabel(QPainter &p, const QVector<QPoint> &screen, const QString &title,
-                                  const QString &shortTitle, const QStringList &lines, const QColor &accent)
+bool GeometryLayer::activeContains(const QPoint &pos) const
 {
-    if (screen.size() < 2)
-        return;
-    const QRect bbox = QPolygon(screen).boundingRect();
-    const QRect vp = p.viewport();
-    if (!vp.intersects(bbox))
-        return;
+    return m_active.size() >= 3 && mapgeo::pointInPolygon(m_active, mapgeo::toGeo(pos));
+}
 
-    // Центр — центр видимой части области, чтобы подпись не уходила за экран
-    const QPoint c = bbox.intersected(vp).center();
-    const QSize full = infoBoxSize(p.font(), title, lines);
-    const Qt::PenStyle border = shortTitle == QLatin1String("Чернетка") ? Qt::DashLine : Qt::SolidLine;
-
-    if (full.width() <= bbox.width() && full.height() <= bbox.height()) {
-        QRect r(QPoint(), full);
-        r.moveCenter(c);
-        paintInfoBox(p, r, title, lines, accent, border);
-        return;
+QStringList GeometryLayer::reconStatusLines(const GeometryItem *it) const
+{
+    // Активная: логер принял именно эти вершины
+    if (!it || sameAsActive(*it)) {
+        const QString time = m_activeAt.isValid() ? m_activeAt.toLocalTime().toString("HH:mm") : QString();
+        return { time.isEmpty() ? QStringLiteral("Прийнята логером")
+                                : QStringLiteral("Прийнята логером о %1").arg(time) };
     }
-
-    // Область меньше плашки — короткая метка по центру
-    p.save();
-    QFont f = p.font();
-    f.setPointSize(8);
-    f.setBold(true);
-    p.setFont(f);
-    const QFontMetrics fm(f);
-    QRect r(0, 0, fm.horizontalAdvance(shortTitle) + 12, fm.height() + 4);
-    if (r.width() > bbox.width() || r.height() > bbox.height()) {
-        p.restore();
-        return;                     // и короткая метка больше области — остаётся только контур
-    }
-    r.moveCenter(c);
-    p.setPen(QPen(accent, 1.5, border));
-    p.setBrush(QColor(255, 255, 255, 235));
-    p.drawRoundedRect(r, r.height() / 2.0, r.height() / 2.0);
-    p.setPen(accent.darker(130));
-    p.drawText(r, Qt::AlignCenter, shortTitle);
-    p.restore();
+    QStringList l{ QStringLiteral("Ще не відправлено на дрон") };
+    if (m_reconCheck == 1)
+        l << QStringLiteral("✓ Перевірку пройдено");
+    else if (m_reconCheck == 0 && !m_reconError.isEmpty())
+        l << QStringLiteral("✕ ") + m_reconError;
+    else
+        l << QStringLiteral("Перевірка…");
+    return l;
 }
 
 void GeometryLayer::setReconCheck(int state, int vertex, const QString &text)
@@ -662,6 +632,7 @@ void GeometryLayer::setReconCheck(int state, int vertex, const QString &text)
     m_reconCheck = state;
     m_reconBadVertex = vertex;
     m_reconError = text;
+    refreshSummary();
     emit updateRequested();
 }
 
