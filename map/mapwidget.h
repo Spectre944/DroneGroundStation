@@ -418,8 +418,17 @@ public:
     */
     void setReconCheck(int state, int vertex = -1, const QString &text = QString());
 
+    /**
+        @brief Активная область — та, что логер принял (ID01 на ID04), с временем приёма.
+        @note  Рисуется сплошной линией отдельно от черновика (области разведки в GeometryStore).
+               Пока черновик совпадает с активной, рисуется только активная.
+               Пустой список — активной области нет (новый сеанс связи).
+    */
+    void setActiveRecon(const QVector<smappoint> &points, const QDateTime &acceptedAt);
+
 signals:
     void selectionChanged(int id);
+    void reconPrepareRequested();     ///< «Підготувати для розвідки» — открыть страницу «Розвідка»
 
 private:
     struct InfoBox {
@@ -459,6 +468,15 @@ private:
     int     m_reconCheck = -1;    ///< 1 — ok, 0 — ошибка, -1 — не проверена
     int     m_reconBadVertex = -1;
     QString m_reconError;
+
+    QVector<smappoint> m_active;  ///< область, принятая логером (ID04 «Виконано»)
+    QDateTime          m_activeAt;
+
+    bool sameAsActive(const GeometryItem &it) const;
+    void drawActive(QPainter &p);
+    /// Подпись области по центру; если область на экране мала — короткая метка или ничего
+    void drawAreaLabel(QPainter &p, const QVector<QPoint> &screen, const QString &title,
+                       const QString &shortTitle, const QStringList &lines, const QColor &accent);
 };
 
 // ======================================================================
@@ -679,6 +697,7 @@ signals:
     // Разведка назначается через контекстное меню фигуры (вместо ReconAreaLayer)
     void reconAssigned(const QVector<smappoint> &points, bool isRoute);  // линия = маршрут, полигон = область
     void reconCleared();                                                  // область разведки снята / удалена
+    void reconPrepareRequested();                                         // «Підготувати для розвідки» из меню
 
 public slots:
     void zoomIn();
@@ -718,6 +737,9 @@ public slots:
 
     /// Результат DroneCore::areaChecked: цвет области и вершина с ошибкой
     void setReconCheck(bool ok, int vertex, const QString &error);
+
+    /// Логер принял область (ID04 «Виконано»); пустой список — сброс (новый сеанс связи)
+    void setActiveReconArea(const QVector<GeoPoint> &vertices, const QDateTime &acceptedAt);
 
     void onMeasurement(const Measurement &m);                  // новая точка (живой полёт)
     void setMeasurements(const QVector<Measurement> &list);    // весь полёт сразу (архив, SessionData)

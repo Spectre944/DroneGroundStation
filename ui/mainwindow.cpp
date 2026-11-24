@@ -20,6 +20,7 @@
 #include "ui/modules/spectrumView/spectrumview.h"
 #include "classes/drone_core.h"
 #include "ui/modules/coreTexts/coretexts.h"
+#include <memory>
 
 namespace {
 // Путь к карте, если в настройках ещё ничего не выбрано (как было захардкожено раньше)
@@ -208,6 +209,22 @@ void MainWindow::setupCore()
         reconPage->onCommandSent(core->sendCommand(r));
     });
     connect(settingsPage, &SettingsPage::reconDefaultsChanged, reconPage, &ReconPage::setDefaults);
+    // «Підготувати для розвідки» на карте — сразу открыть страницу, где область отправляется
+    connect(mapWidget, &MapWidget::reconPrepareRequested, this, [this] {
+        showPage(pageStack->indexOf(reconPage));
+    });
+    // Логер принял ID04 — на карте «Активна область» (сплошная), черновик больше не рисуется
+    connect(core, &DroneCore::commandFinished, mapWidget, [this](const CommandOutcome &o) {
+        if (o.request.id == 4 && o.result == CommandResult::Done)
+            mapWidget->setActiveReconArea(o.request.vertices, o.finishTime);
+    });
+    // Порт открыт заново — ядро забывает принятую область (CoreEngine::openPort), карта тоже
+    connect(core, &DroneCore::linkStatusChanged, mapWidget,
+            [this, prev = std::make_shared<LinkState>(LinkState::Closed)](const LinkStatus &st) {
+        if (*prev == LinkState::Closed && st.state != LinkState::Closed)
+            mapWidget->setActiveReconArea({}, QDateTime());
+        *prev = st.state;
+    });
 
     // ---- карта: дрон и путь, точки измерений, тепловая карта ----
     connect(core, &DroneCore::routePoint, mapWidget, [this](const RoutePoint &p) {
