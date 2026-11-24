@@ -5,6 +5,8 @@
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QMenuBar>
+#include <QMenu>
+#include <QMessageBox>
 #include <QSplitter>
 #include <QStackedWidget>
 
@@ -21,6 +23,7 @@
 #include "classes/drone_core.h"
 #include "ui/modules/coreTexts/coretexts.h"
 #include <memory>
+#include <limits>
 
 namespace {
 // Путь к карте, если в настройках ещё ничего не выбрано (как было захардкожено раньше)
@@ -121,6 +124,12 @@ void MainWindow::setupMenu()
     for (const Page &page : std::as_const(pages))
         bar->addAction(page.action);
 
+    // «Дії» — команды логгеру; доступность — по DroneCore::allowedCommandsChanged (setupCore)
+    QMenu *actions = bar->addMenu("Дії");
+    actFinishRecon = actions->addAction("Закінчити розвідку");
+    actFinishRecon->setToolTip("ID08: логер закриває файл області і переходить у «Повернення»");
+    actFinishRecon->setEnabled(false);
+
     indicatorPanel = new IndicatorPanel(bar);
     bar->setCornerWidget(indicatorPanel, Qt::TopRightCorner);
 }
@@ -216,13 +225,59 @@ void MainWindow::setupCore()
     // Логер принял ID04 — на карте «Активна область» (сплошная), черновик больше не рисуется
     connect(core, &DroneCore::commandFinished, mapWidget, [this](const CommandOutcome &o) {
         if (o.request.id == 4 && o.result == CommandResult::Done)
-            mapWidget->setActiveReconArea(o.request.vertices, o.finishTime);
+            mapWidget->setActiveReconArea(o.request, o.finishTime);
     });
+    // «Дії → Закінчити розвідку» (ID08): после «Виконано» активная область снимается с карты
+    auto finishState = std::make_shared<QPair<bool, bool>>(false, false);   // ID08 разрешена, ждём ответ
+    auto updateFinish = [this, finishState] {
+        actFinishRecon->setEnabled(finishState->first && !finishState->second && finishReconSeq == 0);
+    };
+    connect(core, &DroneCore::allowedCommandsChanged, this, [finishState, updateFinish](const QList<quint8> &ids) {
+        finishState->first = ids.contains(quint8(8));
+        updateFinish();
+    });
+    connect(core, &DroneCore::linkStatusChanged, this, [finishState, updateFinish](const LinkStatus &st) {
+        finishState->second = st.commandPending;
+        updateFinish();
+    });
+    connect(actFinishRecon, &QAction::triggered, this, [this, updateFinish] {
+        const auto answer = QMessageBox::question(this, "Закінчити розвідку",
+            "Логер закриє файл поточної області, зупинить вимірювання і перейде в режим «Повернення».\n\n"
+            "Закінчити розвідку?");
+        if (answer != QMessageBox::Yes)
+            return;
+        CommandRequest r;
+        r.id = 8;
+        // Номер ещё не известен: если итог придёт прямо внутри sendCommand (заглушка в
+        // потоке интерфейса), обработчик узнает «свою» команду по этому значению
+        finishReconSeq = std::numeric_limits<quint32>::max();
+        const quint32 seq = core->sendCommand(r);
+        if (finishReconSeq == std::numeric_limits<quint32>::max())
+            finishReconSeq = seq;           // итог ещё не пришёл — ждём по номеру
+        updateFinish();
+    });
+    connect(core, &DroneCore::commandFinished, this, [this, updateFinish](const CommandOutcome &o) {
+        if (o.request.id != 8)
+            return;
+        if (o.result == CommandResult::Done) {
+            mapWidget->clearActiveReconArea();
+            NotificationManager::showSuccess("Логер перейшов у режим «Повернення»", "Розвідку закінчено");
+        }
+        const bool ours = finishReconSeq != 0 &&
+                          (o.request.seq == finishReconSeq || finishReconSeq == std::numeric_limits<quint32>::max());
+        if (!ours)
+            return updateFinish();
+        if (o.result != CommandResult::Done)
+            NotificationManager::showError(CoreTexts::outcome(o), "Розвідку не закінчено");
+        finishReconSeq = 0;
+        updateFinish();
+    });
+
     // Порт открыт заново — ядро забывает принятую область (CoreEngine::openPort), карта тоже
     connect(core, &DroneCore::linkStatusChanged, mapWidget,
             [this, prev = std::make_shared<LinkState>(LinkState::Closed)](const LinkStatus &st) {
         if (*prev == LinkState::Closed && st.state != LinkState::Closed)
-            mapWidget->setActiveReconArea({}, QDateTime());
+            mapWidget->clearActiveReconArea();
         *prev = st.state;
     });
 

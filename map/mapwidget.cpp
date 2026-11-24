@@ -232,6 +232,7 @@ void GeometryLayer::refreshSummary()
         m_summary.title = QStringLiteral("Активна область розвідки");
         m_summary.lines << reconStatusLines(nullptr)
                         << QString("Площа: %1 км²").arg(mapgeo::areaKm2(m_active), 0, 'f', 2)
+                        << QString("Периметр: %1 км").arg(mapgeo::lengthM(m_active, true) / 1000.0, 0, 'f', 2)
                         << QString("Точок: %1").arg(m_active.size());
         m_summary.valid = true;
         m_summaryAnchor = mapgeo::centroid(m_active);
@@ -574,10 +575,12 @@ bool GeometryLayer::sameAsActive(const GeometryItem &it) const
     return true;
 }
 
-void GeometryLayer::setActiveRecon(const QVector<smappoint> &points, const QDateTime &acceptedAt)
+void GeometryLayer::setActiveRecon(const QVector<smappoint> &points, const QDateTime &acceptedAt,
+                                   const QStringList &params)
 {
     m_active = points;
     m_activeAt = acceptedAt;
+    m_activeParams = params;
     if (m_active.isEmpty())
         m_activeSelected = false;
     refreshSummary();
@@ -614,8 +617,9 @@ QStringList GeometryLayer::reconStatusLines(const GeometryItem *it) const
     // Активная: логер принял именно эти вершины
     if (!it || sameAsActive(*it)) {
         const QString time = m_activeAt.isValid() ? m_activeAt.toLocalTime().toString("HH:mm") : QString();
-        return { time.isEmpty() ? QStringLiteral("Прийнята логером")
-                                : QStringLiteral("Прийнята логером о %1").arg(time) };
+        QStringList l{ time.isEmpty() ? QStringLiteral("Прийнята логером")
+                                      : QStringLiteral("Прийнята логером о %1").arg(time) };
+        return l + m_activeParams;
     }
     QStringList l{ QStringLiteral("Ще не відправлено на дрон") };
     if (m_reconCheck == 1)
@@ -1830,17 +1834,35 @@ void MapWidget::setReconCheck(bool ok, int vertex, const QString &error)
     geometryLayer->setReconCheck(ok ? 1 : 0, vertex, error);
 }
 
-void MapWidget::setActiveReconArea(const QVector<GeoPoint> &vertices, const QDateTime &acceptedAt)
+void MapWidget::setActiveReconArea(const CommandRequest &id04, const QDateTime &acceptedAt)
 {
     QVector<smappoint> pts;
-    pts.reserve(vertices.size());
-    for (const GeoPoint &g : vertices) {
+    pts.reserve(id04.vertices.size());
+    for (const GeoPoint &g : id04.vertices) {
         smappoint p;
         p.latt = g.lat;
         p.longt = g.lon;
         pts << p;
     }
-    geometryLayer->setActiveRecon(pts, acceptedAt);
+
+    // Параметры, с которыми логер ведёт разведку, — для плашки активной области
+    QStringList params;
+    switch (id04.reconMode) {
+    case ReconMode::Operator: params << QStringLiteral("Режим: за командою оператора"); break;
+    case ReconMode::Time:     params << QStringLiteral("Режим: за часом (кожні %1 с)").arg(id04.intervalS); break;
+    case ReconMode::Distance: params << QStringLiteral("Режим: за відстанню (кожні %1 м)").arg(id04.distanceM); break;
+    default: break;
+    }
+    params << QStringLiteral("Інтервал: %1 с · відстань: %2 м").arg(id04.intervalS).arg(id04.distanceM)
+           << (id04.spectrumS > 0 ? QStringLiteral("Набір спектра: %1 с").arg(id04.spectrumS)
+                                  : QStringLiteral("Набір спектра: до команди ID12"))
+           << QStringLiteral("Дублювання пакетів: ×%1").arg(id04.dupFactor);
+    geometryLayer->setActiveRecon(pts, acceptedAt, params);
+}
+
+void MapWidget::clearActiveReconArea()
+{
+    geometryLayer->setActiveRecon({}, QDateTime());
 }
 
 void MapWidget::onMeasurement(const Measurement &m)                 { measurementLayer->addMeasurement(m); }

@@ -424,7 +424,8 @@ public:
                Пока черновик совпадает с активной, рисуется только активная.
                Пустой список — активной области нет (новый сеанс связи).
     */
-    void setActiveRecon(const QVector<smappoint> &points, const QDateTime &acceptedAt);
+    void setActiveRecon(const QVector<smappoint> &points, const QDateTime &acceptedAt,
+                        const QStringList &params = {});
 
 signals:
     void selectionChanged(int id);
@@ -471,6 +472,7 @@ private:
 
     QVector<smappoint> m_active;  ///< область, принятая логером (ID04 «Виконано»)
     QDateTime          m_activeAt;
+    QStringList        m_activeParams;   ///< параметры принятой ID04 — строками для плашки
 
     bool               m_activeSelected = false;   ///< выделена активная область (Ctrl+клик / ПКМ)
 
@@ -740,8 +742,10 @@ public slots:
     /// Результат DroneCore::areaChecked: цвет области и вершина с ошибкой
     void setReconCheck(bool ok, int vertex, const QString &error);
 
-    /// Логер принял область (ID04 «Виконано»); пустой список — сброс (новый сеанс связи)
-    void setActiveReconArea(const QVector<GeoPoint> &vertices, const QDateTime &acceptedAt);
+    /// Логер принял область (ID04 «Виконано»): вершины и параметры — из самой команды
+    void setActiveReconArea(const CommandRequest &id04, const QDateTime &acceptedAt);
+    /// Активной области больше нет: ID08 «Виконано» (разведка закончена) или новый сеанс связи
+    void clearActiveReconArea();
 
     void onMeasurement(const Measurement &m);                  // новая точка (живой полёт)
     void setMeasurements(const QVector<Measurement> &list);    // весь полёт сразу (архив, SessionData)
