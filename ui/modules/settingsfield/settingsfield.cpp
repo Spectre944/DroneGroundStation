@@ -181,11 +181,9 @@ SettingsFieldSpinBox::SettingsFieldSpinBox(QWidget *parent)
     debounceTimer->setInterval(1000);
 
     connect(debounceTimer, &QTimer::timeout, this, [this](){
-        qDebug() << "DebounceTimer valueChanged:" << (spinbox->value() == spinbox->minimum() ? QVariant() : QVariant(spinbox->value()));
         emit valueChanged(spinbox->value() == spinbox->minimum() ? QVariant() : QVariant(spinbox->value()));
     });
     connect(spinbox, &QSpinBox::valueChanged, this, [this](int value){
-        qDebug() << "QSpinBox valueChanged:" << value; // Добавьте отладку!
         debounceTimer->stop();
         debounceTimer->start();
     });
@@ -215,6 +213,11 @@ void SettingsFieldSpinBox::setDataRange(int min, int max)
 {
     spinbox->setRange(min, max);
     spinbox->setToolTip(QString("Мінімальне значення: %1\nМаксимальне значення: %2").arg(min).arg(max));
+}
+
+void SettingsFieldSpinBox::setSpecialValueText(const QString &text)
+{
+    spinbox->setSpecialValueText(text);
 }
 
 QVariant SettingsFieldSpinBox::getValue()
@@ -260,11 +263,9 @@ SettingsFieldDoubleSpinBox::SettingsFieldDoubleSpinBox(QWidget *parent)
     debounceTimer->setInterval(1000);
 
     connect(debounceTimer, &QTimer::timeout, this, [this](){
-        qDebug() << "DebounceTimer valueChanged:" << (doubleSpinbox->value() == doubleSpinbox->minimum() ? QVariant() : QVariant(doubleSpinbox->value()));
         emit valueChanged(doubleSpinbox->value() == doubleSpinbox->minimum() ? QVariant() : QVariant(doubleSpinbox->value()));
     });
     connect(doubleSpinbox, &QDoubleSpinBox::valueChanged, this, [this](double value){
-        qDebug() << "QDoubleSpinBox valueChanged:" << value; // Добавьте отладку!
         debounceTimer->stop();
         debounceTimer->start();
     });

@@ -53,7 +53,8 @@ void SettingsDeviceItem::fillData()
 void SettingsDeviceItem::connections()
 {
     connect(lastUpdateTimer, &QTimer::timeout, this, [this](){
-        _data->lastUpdate += UPDATE_STEP_SECONDS;
+        if (_data->lastUpdate >= 0)             // -1 — пакетов ещё не было, счётчик стоит
+            _data->lastUpdate += UPDATE_STEP_SECONDS;
         updateUI();
     });
 
@@ -112,17 +113,7 @@ void SettingsDeviceItem::updateStatusUI()
         ui->labelIsActive->setPixmap(m_inactiveIcon);
     }
 
-    int seconds = _data->lastUpdate;
-    QString timeText;
-
-    if (seconds < 60) {
-        timeText = QString("%1 сек. назад").arg(seconds);
-    } else {
-        int minutes = seconds / 60;
-        timeText = QString("%1 хв. назад").arg(minutes);
-    }
-
-    ui->labelLastUpdate->setText(timeText);
+    ui->labelLastUpdate->setText(lastUpdateText(_data->lastUpdate));
 
     ui->labelDeviceStatus->style()->unpolish(ui->labelDeviceStatus);
     ui->labelDeviceStatus->style()->polish(ui->labelDeviceStatus);
@@ -196,6 +187,25 @@ void SettingsDeviceItem::increseErrorCount()
 {
     _data->errorCount++;
     updateErrorUI();
+}
+
+void SettingsDeviceItem::markAlive()
+{
+    _data->lastUpdate = 0;
+    if (_data->status == DeviceStatus::Disconnected)
+        _data->status = DeviceStatus::Active;
+    updateStatusUI();
+}
+
+QString SettingsDeviceItem::lastUpdateText(int seconds)
+{
+    if (seconds < 0)
+        return QStringLiteral("немає даних");
+    if (seconds < 60)
+        return QString("%1 сек. назад").arg(seconds);
+    if (seconds < 3600)
+        return QString("%1 хв. назад").arg(seconds / 60);
+    return QString("%1 год. назад").arg(seconds / 3600);
 }
 
 int SettingsDeviceItem::statusPriority(DeviceStatus status)

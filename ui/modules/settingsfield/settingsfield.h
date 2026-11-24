@@ -101,6 +101,8 @@ public:
     void setTooltip(const QString &text);
     void setTextUnits(const QString &text);
     void setDataRange(int, int);
+    /// Текст вместо минимального значения (по умолчанию «Вимкнено»)
+    void setSpecialValueText(const QString &text);
 
     QVariant getValue();
     void setValue(const QVariant& value);

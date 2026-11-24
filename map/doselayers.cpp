@@ -749,6 +749,11 @@ DoseGridLayer::DoseGridLayer(const DoseColorScale *scale, QObject *parent)
 
 void DoseGridLayer::setGrid(const GridData &grid)
 {
+    // Пустая сетка от ядра (новый полёт, новая область) — просто очистить слой
+    if (grid.cols <= 0 || grid.rows <= 0) {
+        clear();
+        return;
+    }
     const qint64 cells = qint64(grid.cols) * grid.rows;
     if (grid.cols <= 0 || grid.rows <= 0 || grid.values.size() != cells ||
         (!grid.inArea.isEmpty() && grid.inArea.size() != cells) ||

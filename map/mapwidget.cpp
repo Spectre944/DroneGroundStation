@@ -470,26 +470,57 @@ void GeometryLayer::drawItem(QPainter &p, const GeometryItem &it)
     if (s.size() < 2)
         return;
 
+    // Цвет области разведки — по проверке ядра: зелёная годится, красная — нет
+    QColor reconColor = m_reconColor, reconFill = m_reconFill;
+    if (recon && m_reconCheck >= 0) {
+        reconColor = m_reconCheck ? QColor(0x2E, 0x9E, 0x6A) : QColor(0xE5, 0x48, 0x4D);
+        reconFill = reconColor;
+        reconFill.setAlpha(m_reconFill.alpha());
+    }
+
     if (it.kind == GeometryKind::Line) {
-        p.setPen(QPen(recon ? m_reconColor : m_lineColor, 3));
+        p.setPen(QPen(recon ? reconColor : m_lineColor, 3));
         p.setBrush(Qt::NoBrush);
         p.drawPolyline(s.constData(), s.size());
     } else {
-        p.setPen(QPen(recon ? m_reconColor : m_polyColor, recon ? 3 : 2));
-        p.setBrush(recon ? m_reconFill : m_polyFill);
+        p.setPen(QPen(recon ? reconColor : m_polyColor, recon ? 3 : 2));
+        p.setBrush(recon ? reconFill : m_polyFill);
         p.drawPolygon(s.constData(), s.size());
+    }
+
+    // Вершина, к которой относится ошибка
+    if (recon && m_reconCheck == 0 && m_reconBadVertex >= 0 && m_reconBadVertex < s.size()) {
+        const QPoint v = s[m_reconBadVertex];
+        p.setBrush(QColor(0xE5, 0x48, 0x4D, 70));
+        p.setPen(QPen(Qt::white, 5));
+        p.drawEllipse(v, 13, 13);
+        p.setPen(QPen(QColor(0xE5, 0x48, 0x4D), 3));
+        p.drawEllipse(v, 13, 13);
+        drawPointLabel(p, m_reconBadVertex + 1, v, QColor(0xE5, 0x48, 0x4D));
     }
 
     // Метка "разведка" - только если фигура не выделена (у выделенной это есть в плашке)
     if (recon && it.id != m_selectedId) {
-        const bool tooMany = it.kind == GeometryKind::Polygon && it.points.size() > CoreConst::AreaMaxVertices;
+        QStringList lines;
+        if (it.kind == GeometryKind::Polygon && it.points.size() > CoreConst::AreaMaxVertices)
+            lines << QString("⚠ %1 точок, логер приймає до %2")
+                         .arg(it.points.size()).arg(CoreConst::AreaMaxVertices);
+        if (m_reconCheck == 0 && !m_reconError.isEmpty())
+            lines << QStringLiteral("✕ ") + m_reconError;
+        else if (m_reconCheck == 1)
+            lines << QStringLiteral("✓ Перевірку пройдено");
         drawInfoBox(p, mapgeo::toScreen(anchorOf(it)),
                     it.kind == GeometryKind::Polygon ? "Область розвідки" : "Маршрут розвідки",
-                    tooMany ? QStringList{ QString("⚠ %1 точок, логер приймає до %2")
-                                               .arg(it.points.size()).arg(CoreConst::AreaMaxVertices) }
-                            : QStringList{},
-                    m_reconColor, p.viewport());
+                    lines, reconColor, p.viewport());
     }
+}
+
+void GeometryLayer::setReconCheck(int state, int vertex, const QString &text)
+{
+    m_reconCheck = state;
+    m_reconBadVertex = vertex;
+    m_reconError = text;
+    emit updateRequested();
 }
 
 void GeometryLayer::drawSelection(QPainter &p)
@@ -1575,6 +1606,7 @@ void MapWidget::syncGeometryList()
 
 void MapWidget::onReconChanged(int id)
 {
+    geometryLayer->setReconCheck(-1);      // новая / изменённая область — ждём проверки ядра
     if (const GeometryItem *it = store->find(id)) {
         if (it->kind == GeometryKind::Polygon && it->points.size() > CoreConst::AreaMaxVertices)
             NotificationManager::showWarning(
@@ -1658,6 +1690,31 @@ void MapWidget::activeSearchAreaRecived(QString coordinates)
 // }
 
 // ------------------------ ДОЗА: ТОЧКИ И ТЕПЛОВАЯ КАРТА ------------------------ //
+
+void MapWidget::setReconArea(const QVector<smappoint> &points)
+{
+    if (points.isEmpty())
+        return;
+    const int id = store->reconId();
+    const GeometryItem *it = store->find(id);
+    if (it && it->kind == GeometryKind::Polygon) {
+        // те же вершины (с точностью ~1 см) — ничего не делать
+        bool same = it->points.size() == points.size();
+        for (int i = 0; same && i < points.size(); ++i)
+            same = std::fabs(it->points[i].latt - points[i].latt) < 1e-7
+                && std::fabs(it->points[i].longt - points[i].longt) < 1e-7;
+        if (!same)
+            store->setPoints(id, points);
+        return;
+    }
+    // разведкой была линия (маршрут) или ничего — новый полигон
+    store->assignRecon(store->add(GeometryKind::Polygon, points));
+}
+
+void MapWidget::setReconCheck(bool ok, int vertex, const QString &error)
+{
+    geometryLayer->setReconCheck(ok ? 1 : 0, vertex, error);
+}
 
 void MapWidget::onMeasurement(const Measurement &m)                 { measurementLayer->addMeasurement(m); }
 void MapWidget::setMeasurements(const QVector<Measurement> &list)   { measurementLayer->setMeasurements(list); }

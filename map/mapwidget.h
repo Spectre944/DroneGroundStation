@@ -410,6 +410,14 @@ public:
     // Формат координат для подсказок и "Скопіювати координати" (выбирается в панели над картой)
     void setCoordType(CoordType type) { m_coordType = type; }
 
+    /**
+        @brief Результат проверки области разведки ядром (DroneCore::areaChecked).
+        @param state   1 — область годится (зелёная), 0 — ошибка (красная), -1 — не проверена (обычный цвет)
+        @param vertex  вершина с ошибкой (с 0), -1 — вся область
+        @param text    текст ошибки — в плашке «Область розвідки»
+    */
+    void setReconCheck(int state, int vertex = -1, const QString &text = QString());
+
 signals:
     void selectionChanged(int id);
 
@@ -447,6 +455,10 @@ private:
     QColor m_lineColor, m_polyColor, m_polyFill;
     QColor m_reconColor, m_reconFill;
     QColor m_highlight, m_hover, m_labelBg;
+
+    int     m_reconCheck = -1;    ///< 1 — ok, 0 — ошибка, -1 — не проверена
+    int     m_reconBadVertex = -1;
+    QString m_reconError;
 };
 
 // ======================================================================
@@ -666,7 +678,7 @@ signals:
 
     // Разведка назначается через контекстное меню фигуры (вместо ReconAreaLayer)
     void reconAssigned(const QVector<smappoint> &points, bool isRoute);  // линия = маршрут, полигон = область
-    void reconCleared();
+    void reconCleared();                                                  // область разведки снята / удалена
 
 public slots:
     void zoomIn();
@@ -696,6 +708,17 @@ public slots:
     // --- данные разведки (Ф5, Ф7, Ф8): подключаются к DroneCore ---
     //   connect(core, &DroneCore::measurement, map, &MapWidget::onMeasurement);
     //   connect(core, &DroneCore::gridUpdated, map, &MapWidget::onGridUpdated);
+    /**
+        @brief Задать область разведки списком вершин (страница «Розвідка», поле координат).
+        @note  Если область уже есть — меняются её вершины, иначе добавляется полигон и
+               назначается разведкой. Дальше всё как при рисовании: reconAssigned.
+               Те же вершины повторно — ничего не делает (нет зацикливания с полем координат).
+    */
+    void setReconArea(const QVector<smappoint> &points);
+
+    /// Результат DroneCore::areaChecked: цвет области и вершина с ошибкой
+    void setReconCheck(bool ok, int vertex, const QString &error);
+
     void onMeasurement(const Measurement &m);                  // новая точка (живой полёт)
     void setMeasurements(const QVector<Measurement> &list);    // весь полёт сразу (архив, SessionData)
     void onGridUpdated(const GridData &grid);                  // тепловая карта

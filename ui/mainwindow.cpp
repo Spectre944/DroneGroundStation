@@ -19,6 +19,7 @@
 #include "ui/modules/eventLog/eventlog.h"
 #include "ui/modules/spectrumView/spectrumview.h"
 #include "classes/drone_core.h"
+#include "ui/modules/coreTexts/coretexts.h"
 
 namespace {
 // Путь к карте, если в настройках ещё ничего не выбрано (как было захардкожено раньше)
@@ -165,6 +166,48 @@ void MainWindow::setupCore()
     connect(settingsPage, &SettingsPage::commandRequested, core, [this](const CommandRequest &r) {
         core->sendCommand(r);                               // ID01 / ID02 / ID03 из окна проверки
     });
+    // приборы: пришёл пакет прибора — «Останнє оновлення» с нуля
+    connect(core, &DroneCore::measurement,     settingsPage, &SettingsPage::onMeasurement);
+    connect(core, &DroneCore::spectrumUpdated, settingsPage, &SettingsPage::onSpectrum);
+    // радиомодем (Р2-1): список портов, «Підключити» / «Відключити» в окне прибора
+    settingsPage->setPortProvider([this] { return core->availablePorts(); });
+    connect(settingsPage, &SettingsPage::portOpenRequested,  core, &DroneCore::openPort);
+    connect(settingsPage, &SettingsPage::portCloseRequested, core, &DroneCore::closePort);
+    // настройки ядра (Р2-5, часть): пороги ПАЕД, сетка — после «Зберегти»
+    connect(settingsPage, &SettingsPage::coreSettingsChanged, core, [this](const CoreSettings &s) {
+        core->applySettings(s);
+        mapWidget->setDoseThresholds(s.warnLevel, s.alarmLevel);
+    });
+
+    // ---- страница «Розвідка» (Р2-3): область, проверка ядром, ID04 ----
+    connect(mapWidget, &MapWidget::reconAssigned, reconPage, &ReconPage::onAreaAssigned);
+    connect(mapWidget, &MapWidget::reconCleared,  reconPage, &ReconPage::onAreaCleared);
+    connect(mapWidget, &MapWidget::reconAssigned, core, [this](const QVector<smappoint> &pts, bool isRoute) {
+        QVector<GeoPoint> v;
+        v.reserve(pts.size());
+        for (const smappoint &p : pts) {
+            GeoPoint g;
+            g.lat = p.latt;
+            g.lon = p.longt;
+            v.append(g);
+        }
+        core->checkArea(v, isRoute);                        // ответ — areaChecked
+    });
+    connect(reconPage, &ReconPage::areaEdited, mapWidget, &MapWidget::setReconArea);
+    connect(core, &DroneCore::areaChecked, reconPage, &ReconPage::onAreaChecked);
+    connect(core, &DroneCore::areaChecked, mapWidget, [this](const AreaCheck &c) {
+        mapWidget->setReconCheck(c.ok, c.vertex, CoreTexts::areaError(c));
+    });
+    connect(core, &DroneCore::allowedCommandsChanged, reconPage, &ReconPage::onAllowedCommands);
+    connect(core, &DroneCore::linkStatusChanged,      reconPage, &ReconPage::onLinkStatus);
+    connect(core, &DroneCore::loggerStatusChanged,    reconPage, &ReconPage::onLoggerStatus);
+    connect(core, &DroneCore::commandFinished,        reconPage, &ReconPage::onCommandFinished);
+    connect(core, &DroneCore::sessionData,     reconPage, [this](const SessionData &d) { reconPage->setReadOnly(d.info.readOnly); });
+    connect(core, &DroneCore::sessionStarted,  reconPage, [this] { reconPage->setReadOnly(false); });
+    connect(reconPage, &ReconPage::sendRequested, core, [this](const CommandRequest &r) {
+        reconPage->onCommandSent(core->sendCommand(r));
+    });
+    connect(settingsPage, &SettingsPage::reconDefaultsChanged, reconPage, &ReconPage::setDefaults);
 
     // ---- карта: дрон и путь, точки измерений, тепловая карта ----
     connect(core, &DroneCore::routePoint, mapWidget, [this](const RoutePoint &p) {
@@ -211,10 +254,17 @@ void MainWindow::setupCore()
     });
 
     // ---- запуск ----
-    const CoreSettings settings;                // по умолчанию — до подключения страницы настроек
+    const CoreSettings settings = settingsPage->coreSettings();     // из файла настроек (Р2-5)
     mapWidget->setDoseThresholds(settings.warnLevel, settings.alarmLevel);
     core->applySettings(settings);
-    core->openPort("STUB");                     // временно: пока нет выбора COM-порта; заглушка порт не открывает
+
+    // Порт — тот, что выбрали в прошлый раз (Р2-1). Его нет в системе — не открываем, сообщаем
+    const QString port = settingsPage->savedPort();
+    if (port == QLatin1String("STUB") || core->availablePorts().contains(port))
+        core->openPort(port);
+    else if (!port.isEmpty())
+        NotificationManager::showWarning(QString("Порт %1 не знайдено. Виберіть порт: Налаштування → Радіомодем.").arg(port),
+                                         "Радіомодем не підключено");
 }
 
 // ---------------------------------------------------------------------------

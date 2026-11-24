@@ -97,7 +97,8 @@ void TextEditCoordinates::setCoordinatesFromMap(QVector<smappoint> coordinates)
     QString result;
     result.clear();
     foreach (auto point, coordinates) {
-        result += QString("WGS84:%1, %2/").arg(point.latt).arg(point.longt);
+        // 7 знаков после запятой (~1 см): .arg(double) по умолчанию даёт 6 значащих цифр — ~10 м
+        result += QString("WGS84:%1, %2/").arg(point.latt, 0, 'f', 7).arg(point.longt, 0, 'f', 7);
     }
     result += "/";
     m_textEdit->append(result);
