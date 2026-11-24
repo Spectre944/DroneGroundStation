@@ -88,10 +88,8 @@ QVariant Settings::getValue(const QString &path, const QVariant &defaultValue) c
         }
         else
         {
-            QString warn = QStringLiteral("Settings could not access unknown key ") + currentKey + QStringLiteral(" in ") + QString::fromUtf8(QJsonDocument(parentObject).toJson());
-            qWarning() << qPrintable(warn);
-            return QVariant();
-            //break;
+            // Ключа нет (новая настройка, старый файл) — молча значение по умолчанию (Р2-15)
+            return defaultValue;
         }
     }
 

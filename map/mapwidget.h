@@ -405,13 +405,31 @@ public:
 
     int  selectedId() const { return m_selectedId; }
     void select(int id);
-    void clearSelection() { select(-1); }
+    void clearSelection() { select(-1); }   // снимает и выделение активной области
 
     // Формат координат для подсказок и "Скопіювати координати" (выбирается в панели над картой)
     void setCoordType(CoordType type) { m_coordType = type; }
 
+    /**
+        @brief Результат проверки области разведки ядром (DroneCore::areaChecked).
+        @param state   1 — область годится (зелёная), 0 — ошибка (красная), -1 — не проверена (обычный цвет)
+        @param vertex  вершина с ошибкой (с 0), -1 — вся область
+        @param text    текст ошибки — в плашке «Область розвідки»
+    */
+    void setReconCheck(int state, int vertex = -1, const QString &text = QString());
+
+    /**
+        @brief Активная область — та, что логер принял (ID01 на ID04), с временем приёма.
+        @note  Рисуется сплошной линией отдельно от черновика (области разведки в GeometryStore).
+               Пока черновик совпадает с активной, рисуется только активная.
+               Пустой список — активной области нет (новый сеанс связи).
+    */
+    void setActiveRecon(const QVector<smappoint> &points, const QDateTime &acceptedAt,
+                        const QStringList &params = {});
+
 signals:
     void selectionChanged(int id);
+    void reconPrepareRequested();     ///< «Підготувати для розвідки» — открыть страницу «Розвідка»
 
 private:
     struct InfoBox {
@@ -447,6 +465,22 @@ private:
     QColor m_lineColor, m_polyColor, m_polyFill;
     QColor m_reconColor, m_reconFill;
     QColor m_highlight, m_hover, m_labelBg;
+
+    int     m_reconCheck = -1;    ///< 1 — ok, 0 — ошибка, -1 — не проверена
+    int     m_reconBadVertex = -1;
+    QString m_reconError;
+
+    QVector<smappoint> m_active;  ///< область, принятая логером (ID04 «Виконано»)
+    QDateTime          m_activeAt;
+    QStringList        m_activeParams;   ///< параметры принятой ID04 — строками для плашки
+
+    bool               m_activeSelected = false;   ///< выделена активная область (Ctrl+клик / ПКМ)
+
+    bool sameAsActive(const GeometryItem &it) const;
+    bool activeContains(const QPoint &pos) const;
+    void drawActive(QPainter &p);
+    /// Строки статуса для плашки: «Ще не відправлено» + проверка / «Прийнята логером о …»
+    QStringList reconStatusLines(const GeometryItem *it) const;
 };
 
 // ======================================================================
@@ -666,7 +700,8 @@ signals:
 
     // Разведка назначается через контекстное меню фигуры (вместо ReconAreaLayer)
     void reconAssigned(const QVector<smappoint> &points, bool isRoute);  // линия = маршрут, полигон = область
-    void reconCleared();
+    void reconCleared();                                                  // область разведки снята / удалена
+    void reconPrepareRequested();                                         // «Підготувати для розвідки» из меню
 
 public slots:
     void zoomIn();
@@ -696,6 +731,22 @@ public slots:
     // --- данные разведки (Ф5, Ф7, Ф8): подключаются к DroneCore ---
     //   connect(core, &DroneCore::measurement, map, &MapWidget::onMeasurement);
     //   connect(core, &DroneCore::gridUpdated, map, &MapWidget::onGridUpdated);
+    /**
+        @brief Задать область разведки списком вершин (страница «Розвідка», поле координат).
+        @note  Если область уже есть — меняются её вершины, иначе добавляется полигон и
+               назначается разведкой. Дальше всё как при рисовании: reconAssigned.
+               Те же вершины повторно — ничего не делает (нет зацикливания с полем координат).
+    */
+    void setReconArea(const QVector<smappoint> &points);
+
+    /// Результат DroneCore::areaChecked: цвет области и вершина с ошибкой
+    void setReconCheck(bool ok, int vertex, const QString &error);
+
+    /// Логер принял область (ID04 «Виконано»): вершины и параметры — из самой команды
+    void setActiveReconArea(const CommandRequest &id04, const QDateTime &acceptedAt);
+    /// Активной области больше нет: ID08 «Виконано» (разведка закончена) или новый сеанс связи
+    void clearActiveReconArea();
+
     void onMeasurement(const Measurement &m);                  // новая точка (живой полёт)
     void setMeasurements(const QVector<Measurement> &list);    // весь полёт сразу (архив, SessionData)
     void onGridUpdated(const GridData &grid);                  // тепловая карта

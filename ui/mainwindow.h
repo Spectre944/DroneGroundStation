@@ -69,6 +69,10 @@ private:
     QStackedWidget *pageStack    = nullptr;
     QActionGroup   *pageActions  = nullptr;
     QList<Page>     pages;
+
+    /** @brief Меню «Дії»: команды логгеру, которые нужны с любой страницы. */
+    QAction        *actFinishRecon = nullptr;   ///< «Закінчити розвідку» — ID08
+    quint32         finishReconSeq = 0;         ///< номер отправленной ID08 (0 — не ждём)
     QList<int>      lastSizes;              // ширины до сворачивания стека
 
     ReconPage       *reconPage       = nullptr;

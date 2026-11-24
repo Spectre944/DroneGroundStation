@@ -5,6 +5,8 @@
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QMenuBar>
+#include <QMenu>
+#include <QMessageBox>
 #include <QSplitter>
 #include <QStackedWidget>
 
@@ -19,6 +21,9 @@
 #include "ui/modules/eventLog/eventlog.h"
 #include "ui/modules/spectrumView/spectrumview.h"
 #include "classes/drone_core.h"
+#include "ui/modules/coreTexts/coretexts.h"
+#include <memory>
+#include <limits>
 
 namespace {
 // Путь к карте, если в настройках ещё ничего не выбрано (как было захардкожено раньше)
@@ -119,6 +124,12 @@ void MainWindow::setupMenu()
     for (const Page &page : std::as_const(pages))
         bar->addAction(page.action);
 
+    // «Дії» — команды логгеру; доступность — по DroneCore::allowedCommandsChanged (setupCore)
+    QMenu *actions = bar->addMenu("Дії");
+    actFinishRecon = actions->addAction("Закінчити розвідку");
+    actFinishRecon->setToolTip("ID08: логер закриває файл області і переходить у «Повернення»");
+    actFinishRecon->setEnabled(false);
+
     indicatorPanel = new IndicatorPanel(bar);
     bar->setCornerWidget(indicatorPanel, Qt::TopRightCorner);
 }
@@ -164,6 +175,110 @@ void MainWindow::setupCore()
     connect(core, &DroneCore::allowedCommandsChanged, settingsPage, &SettingsPage::onAllowedCommands);
     connect(settingsPage, &SettingsPage::commandRequested, core, [this](const CommandRequest &r) {
         core->sendCommand(r);                               // ID01 / ID02 / ID03 из окна проверки
+    });
+    // приборы: пришёл пакет прибора — «Останнє оновлення» с нуля
+    connect(core, &DroneCore::measurement,     settingsPage, &SettingsPage::onMeasurement);
+    connect(core, &DroneCore::spectrumUpdated, settingsPage, &SettingsPage::onSpectrum);
+    // радиомодем (Р2-1): список портов, «Підключити» / «Відключити» в окне прибора
+    settingsPage->setPortProvider([this] { return core->availablePorts(); });
+    connect(settingsPage, &SettingsPage::portOpenRequested,  core, &DroneCore::openPort);
+    connect(settingsPage, &SettingsPage::portCloseRequested, core, &DroneCore::closePort);
+    // настройки ядра (Р2-5, часть): пороги ПАЕД, сетка — после «Зберегти»
+    connect(settingsPage, &SettingsPage::coreSettingsChanged, core, [this](const CoreSettings &s) {
+        core->applySettings(s);
+        mapWidget->setDoseThresholds(s.warnLevel, s.alarmLevel);
+    });
+
+    // ---- страница «Розвідка» (Р2-3): область, проверка ядром, ID04 ----
+    connect(mapWidget, &MapWidget::reconAssigned, reconPage, &ReconPage::onAreaAssigned);
+    connect(mapWidget, &MapWidget::reconCleared,  reconPage, &ReconPage::onAreaCleared);
+    connect(mapWidget, &MapWidget::reconAssigned, core, [this](const QVector<smappoint> &pts, bool isRoute) {
+        QVector<GeoPoint> v;
+        v.reserve(pts.size());
+        for (const smappoint &p : pts) {
+            GeoPoint g;
+            g.lat = p.latt;
+            g.lon = p.longt;
+            v.append(g);
+        }
+        core->checkArea(v, isRoute);                        // ответ — areaChecked
+    });
+    connect(reconPage, &ReconPage::areaEdited, mapWidget, &MapWidget::setReconArea);
+    connect(core, &DroneCore::areaChecked, reconPage, &ReconPage::onAreaChecked);
+    connect(core, &DroneCore::areaChecked, mapWidget, [this](const AreaCheck &c) {
+        mapWidget->setReconCheck(c.ok, c.vertex, CoreTexts::areaError(c));
+    });
+    connect(core, &DroneCore::allowedCommandsChanged, reconPage, &ReconPage::onAllowedCommands);
+    connect(core, &DroneCore::linkStatusChanged,      reconPage, &ReconPage::onLinkStatus);
+    connect(core, &DroneCore::loggerStatusChanged,    reconPage, &ReconPage::onLoggerStatus);
+    connect(core, &DroneCore::commandFinished,        reconPage, &ReconPage::onCommandFinished);
+    connect(core, &DroneCore::sessionData,     reconPage, [this](const SessionData &d) { reconPage->setReadOnly(d.info.readOnly); });
+    connect(core, &DroneCore::sessionStarted,  reconPage, [this] { reconPage->setReadOnly(false); });
+    connect(reconPage, &ReconPage::sendRequested, core, [this](const CommandRequest &r) {
+        reconPage->onCommandSent(core->sendCommand(r));
+    });
+    connect(settingsPage, &SettingsPage::reconDefaultsChanged, reconPage, &ReconPage::setDefaults);
+    // «Підготувати для розвідки» на карте — сразу открыть страницу, где область отправляется
+    connect(mapWidget, &MapWidget::reconPrepareRequested, this, [this] {
+        showPage(pageStack->indexOf(reconPage));
+    });
+    // Логер принял ID04 — на карте «Активна область» (сплошная), черновик больше не рисуется
+    connect(core, &DroneCore::commandFinished, mapWidget, [this](const CommandOutcome &o) {
+        if (o.request.id == 4 && o.result == CommandResult::Done)
+            mapWidget->setActiveReconArea(o.request, o.finishTime);
+    });
+    // «Дії → Закінчити розвідку» (ID08): после «Виконано» активная область снимается с карты
+    auto finishState = std::make_shared<QPair<bool, bool>>(false, false);   // ID08 разрешена, ждём ответ
+    auto updateFinish = [this, finishState] {
+        actFinishRecon->setEnabled(finishState->first && !finishState->second && finishReconSeq == 0);
+    };
+    connect(core, &DroneCore::allowedCommandsChanged, this, [finishState, updateFinish](const QList<quint8> &ids) {
+        finishState->first = ids.contains(quint8(8));
+        updateFinish();
+    });
+    connect(core, &DroneCore::linkStatusChanged, this, [finishState, updateFinish](const LinkStatus &st) {
+        finishState->second = st.commandPending;
+        updateFinish();
+    });
+    connect(actFinishRecon, &QAction::triggered, this, [this, updateFinish] {
+        const auto answer = QMessageBox::question(this, "Закінчити розвідку",
+            "Логер закриє файл поточної області, зупинить вимірювання і перейде в режим «Повернення».\n\n"
+            "Закінчити розвідку?");
+        if (answer != QMessageBox::Yes)
+            return;
+        CommandRequest r;
+        r.id = 8;
+        // Номер ещё не известен: если итог придёт прямо внутри sendCommand (заглушка в
+        // потоке интерфейса), обработчик узнает «свою» команду по этому значению
+        finishReconSeq = std::numeric_limits<quint32>::max();
+        const quint32 seq = core->sendCommand(r);
+        if (finishReconSeq == std::numeric_limits<quint32>::max())
+            finishReconSeq = seq;           // итог ещё не пришёл — ждём по номеру
+        updateFinish();
+    });
+    connect(core, &DroneCore::commandFinished, this, [this, updateFinish](const CommandOutcome &o) {
+        if (o.request.id != 8)
+            return;
+        if (o.result == CommandResult::Done) {
+            mapWidget->clearActiveReconArea();
+            NotificationManager::showSuccess("Логер перейшов у режим «Повернення»", "Розвідку закінчено");
+        }
+        const bool ours = finishReconSeq != 0 &&
+                          (o.request.seq == finishReconSeq || finishReconSeq == std::numeric_limits<quint32>::max());
+        if (!ours)
+            return updateFinish();
+        if (o.result != CommandResult::Done)
+            NotificationManager::showError(CoreTexts::outcome(o), "Розвідку не закінчено");
+        finishReconSeq = 0;
+        updateFinish();
+    });
+
+    // Порт открыт заново — ядро забывает принятую область (CoreEngine::openPort), карта тоже
+    connect(core, &DroneCore::linkStatusChanged, mapWidget,
+            [this, prev = std::make_shared<LinkState>(LinkState::Closed)](const LinkStatus &st) {
+        if (*prev == LinkState::Closed && st.state != LinkState::Closed)
+            mapWidget->clearActiveReconArea();
+        *prev = st.state;
     });
 
     // ---- карта: дрон и путь, точки измерений, тепловая карта ----
@@ -211,10 +326,17 @@ void MainWindow::setupCore()
     });
 
     // ---- запуск ----
-    const CoreSettings settings;                // по умолчанию — до подключения страницы настроек
+    const CoreSettings settings = settingsPage->coreSettings();     // из файла настроек (Р2-5)
     mapWidget->setDoseThresholds(settings.warnLevel, settings.alarmLevel);
     core->applySettings(settings);
-    core->openPort("STUB");                     // временно: пока нет выбора COM-порта; заглушка порт не открывает
+
+    // Порт — тот, что выбрали в прошлый раз (Р2-1). Его нет в системе — не открываем, сообщаем
+    const QString port = settingsPage->savedPort();
+    if (port == QLatin1String("STUB") || core->availablePorts().contains(port))
+        core->openPort(port);
+    else if (!port.isEmpty())
+        NotificationManager::showWarning(QString("Порт %1 не знайдено. Виберіть порт: Налаштування → Радіомодем.").arg(port),
+                                         "Радіомодем не підключено");
 }
 
 // ---------------------------------------------------------------------------
