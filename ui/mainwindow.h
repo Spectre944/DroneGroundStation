@@ -22,7 +22,7 @@ class AlarmDrawer;
 class DroneCore;
 class DroneCommandsWindow;
 class SdImport;
-class PageBar;
+class LeftMenu;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -43,7 +43,7 @@ protected:
 
 private:
     // Страница слева от карты (как в РХБ): QSplitter [ QStackedWidget | карта ].
-    // Кнопка боковой панели (PageBar) или пункт меню «Вигляд» переключает страницу;
+    // Кнопка левого меню (LeftMenu) или пункт меню «Вигляд» переключает страницу;
     // повторное нажатие на открытую — сворачивает стек.
     struct Page {
         QAction *action = nullptr;  // кнопка панели / пункт «Вигляд» (checkable)
@@ -57,9 +57,9 @@ private:
     void setupCore();       ///< создание ядра и подключение его сигналов
 
     /**
-        @brief Добавить страницу: в стек, на боковую панель и в меню «Вигляд».
+        @brief Добавить страницу: в стек, в левое меню и в меню «Вигляд».
         @param svgPath — значок (bootstrap SVG из ресурсов)
-        @param bottom  — кнопка прижата к низу панели (для «Налаштування»)
+        @param bottom  — кнопка прижата к низу меню (для «Налаштування»)
         @note  Горячая клавиша — Ctrl+<номер страницы>.
     */
     void addPage(const QString &title, QWidget *widget, const QString &svgPath, bool bottom = false);
@@ -79,10 +79,10 @@ private:
     QStackedWidget *pageStack    = nullptr;
     QActionGroup   *pageActions  = nullptr;
     QList<Page>     pages;
-    PageBar        *pageBar      = nullptr;     ///< кнопки страниц у левого края окна
+    LeftMenu       *leftMenu     = nullptr;     ///< кнопки страниц у левого края окна
     QAction        *actCollapse  = nullptr;     ///< «Вигляд → Згорнути панель» (Ctrl+0)
 
-    /** @brief Меню «Політ» и «Дані»: команды, которые нужны с любой страницы. */
+    /** @brief Меню «Розвідка» и «Бази даних»: команды, которые нужны с любой страницы. */
     QAction        *actFinishRecon = nullptr;   ///< «Закінчити розвідку» — ID08
     quint32         finishReconSeq = 0;         ///< номер отправленной ID08 (0 — не ждём)
     QAction        *actCommands = nullptr;      ///< «Команди дрону…» — окно ID05–ID14 (Р2-4)

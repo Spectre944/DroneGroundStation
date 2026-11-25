@@ -1,68 +1,44 @@
 #ifndef LEFTMENU_H
 #define LEFTMENU_H
 
+/**
+    @file  leftmenu.h
+    @brief Левое меню страниц: узкая колонка кнопок-значков у левого края окна, без подписей.
+    @note  Кнопки — LeftMenuButton (50×50, значок 20 px, полоска-индикатор у открытой страницы),
+           название страницы — в подсказке.
+           Сами действия (QAction, checkable) создаёт и обрабатывает MainWindow: меню только
+           показывает их и держит кнопки в том же состоянии, что действия. Поэтому
+           переключение из меню «Вигляд» и горячими клавишами тоже отражается на кнопках,
+           а повторное нажатие на открытую страницу сворачивает её (MainWindow::togglePage).
+           Рабочие страницы — сверху (addPage), «Налаштування» — прижата вниз (addBottomPage).
+*/
+
+#include <QHash>
 #include <QWidget>
-#include <QPushButton>
-#include <QFrame>
-#include <QLayout>
-#include <QSizePolicy>
-#include <QButtonGroup>
-#include <QPropertyAnimation>
-#include <QShortcut>
-#include <QKeySequence>
 
-#include <backend/utilities/utilities.h>
-#include <ui/components/styleconstants.h>
-#include <ui/components/button/button.h>
-
-
-
+class QAction;
+class QVBoxLayout;
+class LeftMenuButton;
 
 class LeftMenu : public QWidget
 {
     Q_OBJECT
 public:
     explicit LeftMenu(QWidget *parent = nullptr);
-    ~LeftMenu();
 
-public slots:
-    void nextPage();
-    void pageChanged(int);
-
-signals:
-    void changePage(int index);
+    void addPage(QAction *action, const QString &svgPath);         ///< сверху, по порядку
+    void addBottomPage(QAction *action, const QString &svgPath);   ///< снизу, под растяжкой
 
 protected:
-    void enterEvent(QEnterEvent *event) override;
-    void leaveEvent(QEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private:
-    void setupUI();
-    void hideUnusedUI();
-    void fillData();
-    void connections();
-    void setupShortcuts();
+    LeftMenuButton *makeButton(QAction *action, const QString &svgPath);
+    void updateIcons();                     ///< значки под текущую тему
 
-    void expandMenu();
-    void collapseMenu();
-
-    LeftMenuButton *deviceBtn;
-    LeftMenuButton *databaseBtn;
-    LeftMenuButton *cbrnBtn;
-    LeftMenuButton *reconBtn;
-    LeftMenuButton *settingsBtn;
-
-    QVBoxLayout *layout;
-    QButtonGroup *group;
-    QSpacerItem *verticalSpacer;
-
-    bool isExpandble = false;
-    QPropertyAnimation *animation;
-    int expandedWidth = 150;
-    int collapsedWidth = 50;
-
-    int currentPage = 0;
-
+    QVBoxLayout *m_layout = nullptr;
+    int m_topCount = 0;                     ///< кнопок над растяжкой
+    QHash<LeftMenuButton *, QString> m_icons;
 };
 
 #endif // LEFTMENU_H

@@ -1,176 +1,71 @@
 #include "leftmenu.h"
 
+#include <QAction>
+#include <QEvent>
+#include <QVBoxLayout>
+
+#include <backend/utilities/utilities.h>
+#include <ui/components/button/button.h>
+
 LeftMenu::LeftMenu(QWidget *parent)
     : QWidget{parent}
 {
-    setupUI();
-    fillData();
-    connections();
-    hideUnusedUI();
-    setupShortcuts();
-}
-
-void LeftMenu::enterEvent(QEnterEvent *event)
-{
-    QWidget::enterEvent(event);
-    if(isExpandble)
-        expandMenu();
-}
-
-void LeftMenu::leaveEvent(QEvent *event)
-{
-    QWidget::leaveEvent(event);
-    if(isExpandble)
-        collapseMenu();
-}
-
-void LeftMenu::setupUI()
-{
     setObjectName("LeftMenuWidget");
 
-    deviceBtn       = new LeftMenuButton(this);
-    databaseBtn     = new LeftMenuButton(this);
-    cbrnBtn         = new LeftMenuButton(this);
-    reconBtn        = new LeftMenuButton(this);
-    settingsBtn     = new LeftMenuButton(this);
+    m_layout = new QVBoxLayout(this);
+    m_layout->setSpacing(10);
+    m_layout->setContentsMargins(0, 0, 0, 0);
+    m_layout->addStretch();                 // всё, что после растяжки, прижато к низу
 
-    deviceBtn->setChecked(true);
-
-    group = new QButtonGroup(this);
-
-    group->addButton(deviceBtn);
-    group->addButton(databaseBtn);
-    group->addButton(cbrnBtn);
-    group->addButton(reconBtn);
-    group->addButton(settingsBtn);
-
-    verticalSpacer = new QSpacerItem(20, 20, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
-
-    layout = new QVBoxLayout(this);
-
-    layout->addWidget(deviceBtn);
-    layout->addWidget(databaseBtn);
-    layout->addWidget(cbrnBtn);
-    layout->addWidget(reconBtn);
-    layout->addItem(verticalSpacer);
-    layout->addWidget(settingsBtn);
-
-    layout->setSpacing(10);
-    layout->setContentsMargins(0, 0, 0, 0);
-
-    setLayout(layout);
-
-    setTabOrder(deviceBtn, databaseBtn);
-    setTabOrder(databaseBtn, cbrnBtn);
-    setTabOrder(cbrnBtn, reconBtn);
-    setTabOrder(reconBtn, deviceBtn);
-
-    //setFixedWidth(collapsedWidth);
-
-    animation = new QPropertyAnimation(this, "minimumWidth");
-    animation->setDuration(300);
-
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
 }
 
-void LeftMenu::hideUnusedUI()
+void LeftMenu::addPage(QAction *action, const QString &svgPath)
 {
-    cbrnBtn->setVisible(false);
-    cbrnBtn->setEnabled(false);
+    m_layout->insertWidget(m_topCount++, makeButton(action, svgPath));
 }
 
-void LeftMenu::fillData()
+void LeftMenu::addBottomPage(QAction *action, const QString &svgPath)
 {
-    deviceBtn       ->setToolTip("Прилади");
-    databaseBtn     ->setToolTip("База даних");
-    cbrnBtn         ->setToolTip("Донесення");
-    reconBtn        ->setToolTip("Розвідка");
-    settingsBtn     ->setToolTip("Налаштування");
-
-    deviceBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/house.svg"));
-    databaseBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/database.svg"));
-    cbrnBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/journal-bookmark.svg"));
-    reconBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/geo-alt.svg"));
-    settingsBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/gear.svg"));
+    m_layout->addWidget(makeButton(action, svgPath));
 }
 
-void LeftMenu::connections()
+/**
+    @brief Кнопка для действия страницы.
+    @note  Нажатие кнопки = срабатывание действия; положение кнопки всегда берётся
+           из действия (его меняет MainWindow::togglePage / showPage / hidePages).
+*/
+LeftMenuButton *LeftMenu::makeButton(QAction *action, const QString &svgPath)
 {
-    connect(deviceBtn,      &QPushButton::clicked, this, [=]() { emit changePage(0); });
-    connect(databaseBtn,    &QPushButton::clicked, this, [=]() { emit changePage(1); });
-    connect(cbrnBtn,        &QPushButton::clicked, this, [=]() { emit changePage(2); });
-    connect(reconBtn,       &QPushButton::clicked, this, [=]() { emit changePage(3); });
-    connect(settingsBtn,    &QPushButton::clicked, this, [=]() { emit changePage(4); });
+    auto *btn = new LeftMenuButton(this);
+    btn->setIcon(IconHelper::createThemedIcon(svgPath));
+    btn->setChecked(action->isChecked());
 
+    const QString keys = action->shortcut().toString(QKeySequence::NativeText);
+    btn->setToolTip(keys.isEmpty() ? action->text() : QStringLiteral("%1 (%2)").arg(action->text(), keys));
 
-    connect(qApp, &QApplication::paletteChanged, [=]() {
-        deviceBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/house.svg"));
-        databaseBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/database.svg"));
-        cbrnBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/journal-bookmark.svg"));
-        reconBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/geo-alt.svg"));
-        settingsBtn->setIcon(IconHelper::createThemedIcon(":/icons/svg/bs5/gear.svg"));
+    connect(btn, &QPushButton::clicked, this, [btn, action] {
+        action->trigger();
+        btn->setChecked(action->isChecked());   // кнопка сама переключилась — вернуть как у действия
     });
+    connect(action, &QAction::toggled, btn, &QPushButton::setChecked);
+
+    m_icons.insert(btn, svgPath);
+    return btn;
 }
 
-void LeftMenu::setupShortcuts()
+/**
+    @brief Тема Windows сменилась — перекрасить значки (цвет — из палитры приложения).
+*/
+void LeftMenu::changeEvent(QEvent *event)
 {
-    int shortcutIndex = 1; // Начинаем с Ctrl+1
-
-    for (int i = 0; i < layout->count(); ++i) {
-        QLayoutItem* item = layout->itemAt(i);
-
-        if (item && item->widget()) {
-            QPushButton* button = qobject_cast<QPushButton*>(item->widget());
-
-            if (button && button->isEnabled()) {
-                QString shortcut = QString("Ctrl+%1").arg(shortcutIndex);
-                button->setShortcut(QKeySequence(shortcut));
-                shortcutIndex++;
-            } else if (button) {
-                button->setShortcut(QKeySequence());
-            }
-        }
-    }
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)
+        updateIcons();
 }
 
-void LeftMenu::expandMenu()
+void LeftMenu::updateIcons()
 {
-    animation->stop();
-    animation->setStartValue(width());
-    animation->setEndValue(expandedWidth);
-    animation->start();
-}
-
-void LeftMenu::collapseMenu()
-{
-    animation->stop();
-    animation->setStartValue(width());
-    animation->setEndValue(collapsedWidth);
-    animation->start();
-}
-
-LeftMenu::~LeftMenu()
-{
-    delete layout;
-    delete group;
-}
-
-void LeftMenu::nextPage()
-{
-    // Увеличиваем `currentPage`, но не выходим за границы
-    currentPage = (currentPage + 1) % 5;  // Если страниц 5, то вернётся на первую после последней
-
-    // Имитируем нажатие кнопки, соответствующей `currentPage`
-    switch (currentPage) {
-        case 0: deviceBtn->click(); break;
-        case 1: databaseBtn->click(); break;
-        case 2: cbrnBtn->click(); break;
-        case 3: reconBtn->click(); break;
-        case 4: settingsBtn->click(); break;
-    }
-}
-
-
-void LeftMenu::pageChanged(int pageIndex)
-{
-    currentPage = pageIndex;
+    for (auto it = m_icons.cbegin(); it != m_icons.cend(); ++it)
+        it.key()->setIcon(IconHelper::createThemedIcon(it.value()));
 }

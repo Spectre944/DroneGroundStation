@@ -25,7 +25,7 @@
 #include "ui/modules/coreTexts/coretexts.h"
 #include "ui/windows/dronecommands/dronecommandswindow.h"
 #include "ui/windows/sdimport/sdimport.h"
-#include "ui/components/pageBar/pagebar.h"
+#include "ui/modules/leftMenu/leftmenu.h"
 #include <memory>
 #include <limits>
 
@@ -106,9 +106,9 @@ void MainWindow::setupPages()
     pageActions = new QActionGroup(this);
     pageActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
 
-    // Кнопки страниц — вертикальная панель у левого края; строка меню — для команд
-    pageBar = new PageBar(this);
-    addToolBar(Qt::LeftToolBarArea, pageBar);
+    // Кнопки страниц — левое меню (значки без подписей); строка меню — для команд
+    leftMenu = new LeftMenu(this);
+    ui->horizontalLayout->insertWidget(0, leftMenu);
 
     addPage("Розвідка",     reconPage,       ":/icons/svg/bs5/binoculars.svg");
     addPage("База даних",   databasePage,    ":/icons/svg/bs5/database.svg");
@@ -130,9 +130,9 @@ void MainWindow::setupMenu()
 {
     QMenuBar *bar = menuBar();
 
-    // ---- «Політ»: команды текущему полёту ----
+    // ---- «Розвідка»: команды текущему полёту ----
     // Доступность «Закінчити розвідку» — по DroneCore::allowedCommandsChanged (setupCore)
-    QMenu *flight = bar->addMenu("Політ");
+    QMenu *flight = bar->addMenu("Розвідка");
     actFinishRecon = flight->addAction("Закінчити розвідку");
     actFinishRecon->setToolTip("ID08: логер закриває файл області і переходить у «Повернення»");
     actFinishRecon->setEnabled(false);
@@ -160,8 +160,8 @@ void MainWindow::setupMenu()
     actReturnLive->setVisible(false);
     connect(actReturnLive, &QAction::triggered, this, &MainWindow::returnToCurrentFlight);
 
-    // ---- «Дані»: архив ----
-    QMenu *data = bar->addMenu("Дані");
+    // ---- «Бази даних»: архив ----
+    QMenu *data = bar->addMenu("Бази даних");
     actOpenFlight = data->addAction("Відкрити політ…");
     actOpenFlight->setToolTip("Список польотів на сторінці «База даних»");
     connect(actOpenFlight, &QAction::triggered, this, [this] {
@@ -181,7 +181,7 @@ void MainWindow::setupMenu()
     });
     // TODO (Р2-7): «Експорт у CSV…» — сюда, после импорта SD
 
-    // ---- «Вигляд»: страницы (те же действия, что на боковой панели) ----
+    // ---- «Вигляд»: страницы (те же действия, что в левом меню) ----
     QMenu *view = bar->addMenu("Вигляд");
     for (const Page &page : std::as_const(pages))
         view->addAction(page.action);
@@ -495,9 +495,9 @@ void MainWindow::addPage(const QString &title, QWidget *widget, const QString &s
     connect(page.action, &QAction::triggered, this, [this, index] { togglePage(index); });
 
     if (bottom)
-        pageBar->addBottomPage(page.action, svgPath);
+        leftMenu->addBottomPage(page.action, svgPath);
     else
-        pageBar->addPage(page.action, svgPath);
+        leftMenu->addPage(page.action, svgPath);
 
     pages.append(page);
 }
