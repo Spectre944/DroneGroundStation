@@ -7,6 +7,7 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QMessageBox>
+#include <QKeySequence>
 #include <QSplitter>
 #include <QStackedWidget>
 
@@ -24,6 +25,7 @@
 #include "ui/modules/coreTexts/coretexts.h"
 #include "ui/windows/dronecommands/dronecommandswindow.h"
 #include "ui/windows/sdimport/sdimport.h"
+#include "ui/modules/leftMenu/leftmenu.h"
 #include <memory>
 #include <limits>
 
@@ -104,10 +106,14 @@ void MainWindow::setupPages()
     pageActions = new QActionGroup(this);
     pageActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
 
-    addPage("Розвідка",     reconPage);
-    addPage("База даних",   databasePage);
-    addPage("Прилади",      instrumentsPage);
-    addPage("Налаштування", settingsPage);
+    // Кнопки страниц — левое меню (значки без подписей); строка меню — для команд
+    leftMenu = new LeftMenu(this);
+    ui->horizontalLayout->insertWidget(0, leftMenu);
+
+    addPage("Прилади",      instrumentsPage, ":/icons/svg/bs5/house.svg");
+    addPage("База даних",   databasePage,    ":/icons/svg/bs5/database.svg");
+    addPage("Розвідка",     reconPage,       ":/icons/svg/bs5/geo-alt.svg");
+    addPage("Налаштування", settingsPage,    ":/icons/svg/bs5/gear.svg", true);
 
     // --- связи страниц с картой ---
     connect(settingsPage, &SettingsPage::mapFileSelected, mapWidget, &MapWidget::setMapFile);
@@ -123,38 +129,94 @@ void MainWindow::setupPages()
 void MainWindow::setupMenu()
 {
     QMenuBar *bar = menuBar();
-    for (const Page &page : std::as_const(pages))
-        bar->addAction(page.action);
 
-    // «Дії» — команды логгеру; доступность — по DroneCore::allowedCommandsChanged (setupCore)
-    QMenu *actions = bar->addMenu("Дії");
-    actFinishRecon = actions->addAction("Закінчити розвідку");
+    // ---- «Розвідка»: команды текущему полёту ----
+    // Доступность «Закінчити розвідку» — по DroneCore::allowedCommandsChanged (setupCore)
+    QMenu *flight = bar->addMenu("Розвідка");
+    actFinishRecon = flight->addAction("Закінчити розвідку");
     actFinishRecon->setToolTip("ID08: логер закриває файл області і переходить у «Повернення»");
     actFinishRecon->setEnabled(false);
 
-    // Окно команд ID05–ID14 (Р2-4) — пока отдельное окно, место на странице выберем потом
+    // «Завершити політ» — то же, что кнопка на странице «Розвідка» (с её подтверждением)
+    actFinishFlight = flight->addAction("Завершити політ");
+    actFinishFlight->setEnabled(false);
+    connect(actFinishFlight, &QAction::triggered, reconPage, &ReconPage::requestFinishFlight);
+
+    // Окно команд ID05–ID14 (Р2-4)
+    flight->addSeparator();
     commandsWindow = new DroneCommandsWindow(this);
     commandsWindow->hide();
-    actCommands = actions->addAction("Команди дрону…");
+    actCommands = flight->addAction("Команди дрону…");
+    actCommands->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_K));
     connect(actCommands, &QAction::triggered, this, [this] {
         commandsWindow->show();
         commandsWindow->raise();
         commandsWindow->activateWindow();
     });
 
+    // Видно только при просмотре прошлого полёта — то же, что кнопка на плашке карты
+    flight->addSeparator();
+    actReturnLive = flight->addAction("Повернутися до поточного польоту");
+    actReturnLive->setVisible(false);
+    connect(actReturnLive, &QAction::triggered, this, &MainWindow::returnToCurrentFlight);
+
+    // ---- «Бази даних»: архив ----
+    QMenu *data = bar->addMenu("Бази даних");
+    actOpenFlight = data->addAction("Відкрити політ…");
+    actOpenFlight->setToolTip("Список польотів на сторінці «База даних»");
+    connect(actOpenFlight, &QAction::triggered, this, [this] {
+        showPage(pageStack->indexOf(databasePage));
+        databasePage->showFlights();
+    });
+
     // Импорт SD (Р2-6)
-    actions->addSeparator();
+    data->addSeparator();
     sdImportWindow = new SdImport(this);
     sdImportWindow->hide();
-    actSdImport = actions->addAction("Імпорт з SD-карти…");
+    actSdImport = data->addAction("Імпорт з SD-карти…");
     connect(actSdImport, &QAction::triggered, this, [this] {
         sdImportWindow->show();
         sdImportWindow->raise();
         sdImportWindow->activateWindow();
     });
+    // TODO (Р2-7): «Експорт у CSV…» — сюда, после импорта SD
+
+    // ---- «Вигляд»: страницы (те же действия, что в левом меню) ----
+    QMenu *view = bar->addMenu("Вигляд");
+    for (const Page &page : std::as_const(pages))
+        view->addAction(page.action);
+    view->addSeparator();
+    actCollapse = view->addAction("Згорнути панель");
+    actCollapse->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
+    connect(actCollapse, &QAction::triggered, this, &MainWindow::hidePages);
+
+    // ---- «Довідка» ----
+    QMenu *help = bar->addMenu("Довідка");
+    help->addAction("Про програму", this, [this] {
+        QString text = QStringLiteral("<b>Наземне ПО «ДРОН-1»</b><br>"
+                                      "Оператор радіаційної розвідки<br><br>");
+        if (!QCoreApplication::applicationVersion().isEmpty())
+            text += QStringLiteral("Версія: %1<br>").arg(QCoreApplication::applicationVersion());
+        text += QStringLiteral("Збірка: %1<br>Qt %2").arg(QStringLiteral(__DATE__), QString::fromLatin1(qVersion()));
+        QMessageBox::about(this, "Про програму", text);
+    });
 
     indicatorPanel = new IndicatorPanel(bar);
     bar->setCornerWidget(indicatorPanel, Qt::TopRightCorner);
+
+    updateFlightActions();
+}
+
+/**
+    @brief «Завершити політ» — есть текущий полёт и не открыт прошлый;
+           «Повернутися до поточного» — только при просмотре прошлого.
+*/
+void MainWindow::updateFlightActions()
+{
+    if (!actFinishFlight)
+        return;
+    actFinishFlight->setEnabled(currentSession.id > 0 && !viewingSession);
+    actReturnLive->setVisible(viewingSession);
 }
 
 void MainWindow::setupAlarms()
@@ -377,12 +439,14 @@ void MainWindow::setupCore()
     connect(core, &DroneCore::sessionStarted, this, [this](const SessionInfo &info) {
         currentSession = info;
         databasePage->setCurrentSession(info.id);
+        updateFlightActions();
     });
     connect(core, &DroneCore::sessionFinished, this, [this](const SessionInfo &info) {
         if (info.id == currentSession.id) {
             currentSession = SessionInfo();
             databasePage->setCurrentSession(-1);
         }
+        updateFlightActions();
     });
     connect(core, &DroneCore::sessionData, this, [this](const SessionData &d) {
         if (restoringLive && d.info.id == currentSession.id) {
@@ -417,7 +481,7 @@ void MainWindow::setupCore()
 //  Страницы
 // ---------------------------------------------------------------------------
 
-void MainWindow::addPage(const QString &title, QWidget *widget)
+void MainWindow::addPage(const QString &title, QWidget *widget, const QString &svgPath, bool bottom)
 {
     const int index = pageStack->addWidget(widget);
 
@@ -425,8 +489,15 @@ void MainWindow::addPage(const QString &title, QWidget *widget)
     page.widget = widget;
     page.action = new QAction(title, this);
     page.action->setCheckable(true);
+    page.action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key(Qt::Key_1 + index)));
+    page.action->setToolTip(QStringLiteral("%1 (%2)").arg(title, page.action->shortcut().toString(QKeySequence::NativeText)));
     pageActions->addAction(page.action);
     connect(page.action, &QAction::triggered, this, [this, index] { togglePage(index); });
+
+    if (bottom)
+        leftMenu->addBottomPage(page.action, svgPath);
+    else
+        leftMenu->addPage(page.action, svgPath);
 
     pages.append(page);
 }
@@ -518,6 +589,7 @@ void MainWindow::applySessionView(const SessionData &d)
     indicatorPanel->onSessionOpened(d.info);
     reconPage->setReadOnly(true);
     commandsWindow->setReadOnly(true);
+    updateFlightActions();
     NotificationManager::showInfo(QString("Перегляд польоту «%1»").arg(d.info.name));
 }
 
@@ -533,6 +605,7 @@ void MainWindow::returnToCurrentFlight()
     mapWidget->closeSessionView();
     reconPage->setReadOnly(false);
     commandsWindow->setReadOnly(false);
+    updateFlightActions();
 
     if (currentSession.id > 0) {
         restoringLive = true;

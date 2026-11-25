@@ -73,13 +73,7 @@ void ReconPage::connections()
     connect(ui->pushButtonSimplify, &QPushButton::clicked, this, &ReconPage::simplifyArea);
     connect(ui->pushButtonSend, &QPushButton::clicked, this, &ReconPage::send);
     connect(ui->pushButtonResetDefaults, &QPushButton::clicked, this, [this] { applyParams(m_defaults); });
-    connect(ui->pushButtonFinishFlight, &QPushButton::clicked, this, [this] {
-        const QString text = m_logger.mode == LoggerMode::Work
-            ? tr("Розвідка ще триває. Якщо завершити політ зараз, наступні дані підуть в автоматичний запис.\n\nЗавершити політ «%1»?")
-            : tr("Нові дані підуть у наступний політ.\n\nЗавершити політ «%1»?");
-        if (QMessageBox::question(this, tr("Завершити політ"), text.arg(m_session.name)) == QMessageBox::Yes)
-            emit finishFlightRequested();
-    });
+    connect(ui->pushButtonFinishFlight, &QPushButton::clicked, this, &ReconPage::requestFinishFlight);
 
     // Любая правка поля — подсказка «змінено відносно типових»
     connect(ui->comboBoxReconMode, &QComboBox::currentIndexChanged, this, &ReconPage::updateDefaultsHint);
@@ -436,6 +430,20 @@ void ReconPage::onSessionFinished(const SessionInfo &info)
     m_ownSession = false;
     m_requestedName.clear();
     updateFlightUi();
+}
+
+/**
+    @brief «Завершити політ» — кнопка страницы и пункт меню «Політ»: подтверждение → finishFlightRequested.
+*/
+void ReconPage::requestFinishFlight()
+{
+    if (!m_hasSession || m_readOnly)
+        return;
+    const QString text = m_logger.mode == LoggerMode::Work
+        ? tr("Розвідка ще триває. Якщо завершити політ зараз, наступні дані підуть в автоматичний запис.\n\nЗавершити політ «%1»?")
+        : tr("Нові дані підуть у наступний політ.\n\nЗавершити політ «%1»?");
+    if (QMessageBox::question(this, tr("Завершити політ"), text.arg(m_session.name)) == QMessageBox::Yes)
+        emit finishFlightRequested();
 }
 
 void ReconPage::updateFlightUi()

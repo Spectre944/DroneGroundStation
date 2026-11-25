@@ -341,6 +341,13 @@ WHERE 1=1
 
 }
 
+void SearchBar::searchFlights()
+{
+    pointFlag->setChecked(false);
+    flightFlag->setChecked(true);       // текст кнопки «Тип даних» обновится по toggled
+    createQuery();
+}
+
 void SearchBar::onCenterMarkerChanged(smappoint centerPosition)
 {
     centerLat = centerPosition.latt;

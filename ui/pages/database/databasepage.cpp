@@ -120,6 +120,15 @@ void DatabasePage::connections()
 //  Поиск
 // ------------------------------------------------------------------
 
+/**
+    @brief «Бази даних → Відкрити політ…»: в фильтре «Тип даних» — только «Польоти», сразу поиск.
+    @note  Остальные условия (время, область, сортировка) — те, что выбраны в строке поиска.
+*/
+void DatabasePage::showFlights()
+{
+    ui->widgetSerach->searchFlights();
+}
+
 void DatabasePage::onSearch(bool points, bool flights, qint64 fromSec, qint64 toSec,
                             const QString &area, int sort)
 {

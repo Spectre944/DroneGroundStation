@@ -22,6 +22,7 @@ class AlarmDrawer;
 class DroneCore;
 class DroneCommandsWindow;
 class SdImport;
+class LeftMenu;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -42,9 +43,10 @@ protected:
 
 private:
     // Страница слева от карты (как в РХБ): QSplitter [ QStackedWidget | карта ].
-    // Пункт меню переключает страницу; повторное нажатие на открытую — сворачивает стек.
+    // Кнопка левого меню (LeftMenu) или пункт меню «Вигляд» переключает страницу;
+    // повторное нажатие на открытую — сворачивает стек.
     struct Page {
-        QAction *action = nullptr;  // пункт меню (checkable)
+        QAction *action = nullptr;  // кнопка панели / пункт «Вигляд» (checkable)
         QWidget *widget = nullptr;
     };
 
@@ -54,7 +56,13 @@ private:
     void setupAlarms();
     void setupCore();       ///< создание ядра и подключение его сигналов
 
-    void addPage(const QString &title, QWidget *widget);
+    /**
+        @brief Добавить страницу: в стек, в левое меню и в меню «Вигляд».
+        @param svgPath — значок (bootstrap SVG из ресурсов)
+        @param bottom  — кнопка прижата к низу меню (для «Налаштування»)
+        @note  Горячая клавиша — Ctrl+<номер страницы>.
+    */
+    void addPage(const QString &title, QWidget *widget, const QString &svgPath, bool bottom = false);
     void togglePage(int index);
     void showPage(int index);
     void hidePages();
@@ -71,12 +79,18 @@ private:
     QStackedWidget *pageStack    = nullptr;
     QActionGroup   *pageActions  = nullptr;
     QList<Page>     pages;
+    LeftMenu       *leftMenu     = nullptr;     ///< кнопки страниц у левого края окна
+    QAction        *actCollapse  = nullptr;     ///< «Вигляд → Згорнути панель» (Ctrl+0)
 
-    /** @brief Меню «Дії»: команды логгеру, которые нужны с любой страницы. */
+    /** @brief Меню «Розвідка» и «Бази даних»: команды, которые нужны с любой страницы. */
     QAction        *actFinishRecon = nullptr;   ///< «Закінчити розвідку» — ID08
     quint32         finishReconSeq = 0;         ///< номер отправленной ID08 (0 — не ждём)
     QAction        *actCommands = nullptr;      ///< «Команди дрону…» — окно ID05–ID14 (Р2-4)
     QAction        *actSdImport = nullptr;      ///< «Імпорт з SD-карти…» (Р2-6)
+    QAction        *actFinishFlight = nullptr;  ///< «Завершити політ» — DroneCore::finishSession
+    QAction        *actReturnLive = nullptr;    ///< «Повернутися до поточного» — видно при просмотре
+    QAction        *actOpenFlight = nullptr;    ///< «Відкрити політ…» — список полётов в «База даних»
+    void updateFlightActions();                 ///< доступность пунктов полёта
     DroneCommandsWindow  *commandsWindow = nullptr;
     SdImport       *sdImportWindow = nullptr;
 
