@@ -110,9 +110,9 @@ void MainWindow::setupPages()
     leftMenu = new LeftMenu(this);
     ui->horizontalLayout->insertWidget(0, leftMenu);
 
-    addPage("Розвідка",     reconPage,       ":/icons/svg/bs5/binoculars.svg");
+    addPage("Прилади",      instrumentsPage, ":/icons/svg/bs5/house.svg");
     addPage("База даних",   databasePage,    ":/icons/svg/bs5/database.svg");
-    addPage("Прилади",      instrumentsPage, ":/icons/svg/bs5/cpu.svg");
+    addPage("Розвідка",     reconPage,       ":/icons/svg/bs5/geo-alt.svg");
     addPage("Налаштування", settingsPage,    ":/icons/svg/bs5/gear.svg", true);
 
     // --- связи страниц с картой ---
