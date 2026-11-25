@@ -55,6 +55,7 @@ public slots:
     void onCommandSent(quint32 seq);                    ///< номер запроса от DroneCore::sendCommand
     void onCommandFinished(const CommandOutcome &outcome);
     void setReadOnly(bool readOnly);                    ///< открыт прошлый полёт — отправка недоступна
+    void requestFinishFlight();                         ///< «Завершити політ»: подтверждение → finishFlightRequested
 
     // --- полёт (Р2-2) ---
     void onSessionStarted(const SessionInfo &info);

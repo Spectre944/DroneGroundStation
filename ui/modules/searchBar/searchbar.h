@@ -57,6 +57,7 @@ public slots:
     // void onAreaActionTriggered(QAction* action);
     void createQuery();
     void onCenterMarkerChanged(smappoint centerPosition);
+    void searchFlights();               ///< «Тип даних» = только «Польоти», затем createQuery()
 
 
 private:

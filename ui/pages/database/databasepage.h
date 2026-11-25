@@ -37,6 +37,7 @@ public slots:
     void onCenterMarkerChanged(smappoint centerPosition);
     void onArchiveThreatClicked(int index);          ///< клик по точке на карте — выделить строку
     void onArchiveDBOpened(QString);
+    void showFlights();                              ///< «Дані → Відкрити політ…»: фильтр «Польоти» и поиск
 
     // --- от DroneCore ---
     void onSessionsListed(const QVector<SessionInfo> &list);
