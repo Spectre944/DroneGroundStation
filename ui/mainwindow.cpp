@@ -112,9 +112,9 @@ void MainWindow::setupPages()
     // --- связи страниц с картой ---
     connect(settingsPage, &SettingsPage::mapFileSelected, mapWidget, &MapWidget::setMapFile);
 
-    connect(databasePage, &DatabasePage::archiveDataLoaded,            mapWidget, &MapWidget::setupdArchiveThreads);
+    connect(databasePage, &DatabasePage::archivePointsLoaded,          mapWidget, &MapWidget::setArchivePoints);
     connect(databasePage, &DatabasePage::clearArchiveMapDataRequested, mapWidget, &MapWidget::clearArchiveThreadLayerData);
-    connect(databasePage, &DatabasePage::archiveTableThreatClicked,    mapWidget, &MapWidget::markSelectedArchiveDanger);
+    connect(databasePage, &DatabasePage::archiveTableThreatClicked,    mapWidget, &MapWidget::selectArchivePoint);
     connect(databasePage, &DatabasePage::querySearchAreaFormed,        mapWidget, &MapWidget::activeSearchAreaRecived);
     connect(mapWidget, &MapWidget::archiveThreatClicked,  databasePage, &DatabasePage::onArchiveThreatClicked);
     connect(mapWidget, &MapWidget::centerPositionChanged, databasePage, &DatabasePage::onCenterMarkerChanged);

@@ -341,6 +341,15 @@ void MeasurementLayer::selectAndCenter(qint64 measurementId)
     }
 }
 
+void MeasurementLayer::selectIndexAndCenter(int index)
+{
+    if (index < 0 || index >= m_points.size())
+        return;
+    m_selected = index;
+    emit centerRequested(m_points[index].lat, m_points[index].lon);
+    emit updateRequested();
+}
+
 // ------------------------ ОТРИСОВКА ------------------------ //
 
 qreal MeasurementLayer::dotRadius(int zoom)

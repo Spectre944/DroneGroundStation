@@ -51,6 +51,7 @@ void DatabasePage::setupUI()
     view = new StickyTableView(this);
     view->setModel(model);
     view->setAlternatingRowColors(true);
+    view->setFont(QFont("Consolas"));                  // точки-заполнители «ПАЕД: ....» выравниваются
     view->setTabKeyNavigation(false);
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
     view->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -60,7 +61,6 @@ void DatabasePage::setupUI()
     view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     view->setToolTip(QStringLiteral("Політ: подвійний клік або ПКМ → «Переглянути політ»"));
     ui->tableLayout->addWidget(view, 1);
-    tableNavigator = new TableNavigator(view, this);
 
     // Панель поиска - по высоте содержимого, всё остальное место - таблице
     ui->widgetSerach->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
@@ -84,9 +84,21 @@ void DatabasePage::connections()
         view->resizeColumnsToContents();
         view->resizeRowsToContents();
     });
+    // Переход к разделу — выпадающим меню под кнопкой (а не отдельным окном)
     connect(ui->tableControl, &TableControl::navigationPanelRequested, this, [this] {
-        tableNavigator->updateSectionList();
-        tableNavigator->show();
+        QMenu menu(this);
+        const QVector<TableSection> &secs = model->getSections();
+        for (const TableSection &sec : secs) {
+            const int row = sec.startRow;
+            menu.addAction(QStringLiteral("%1 (%2)").arg(sec.name).arg(sec.rowCount), this, [this, row] {
+                view->scrollTo(model->index(row, 0), QAbstractItemView::PositionAtTop);
+                view->selectRow(row);
+            });
+        }
+        if (menu.isEmpty())
+            menu.addAction(QStringLiteral("Немає результатів"))->setEnabled(false);
+        QWidget *btn = ui->tableControl->getWidget(TableControl::WidgetType::Navigator);
+        menu.exec(btn ? btn->mapToGlobal(QPoint(0, btn->height())) : QCursor::pos());
     });
 
     connect(view, &QWidget::customContextMenuRequested, this, &DatabasePage::showContextMenu);
@@ -133,7 +145,7 @@ void DatabasePage::onSearch(bool points, bool flights, qint64 fromSec, qint64 to
         f.area = parseArea(area);
         emit pointsRequested(f);
     } else {
-        emit archiveDataLoaded({});          // точки не искали — убрать старые с карты
+        emit archivePointsLoaded({});        // точки не искали — убрать старые с карты
     }
 }
 
@@ -169,18 +181,19 @@ void DatabasePage::onArchiveResult(const ArchiveResult &result)
         return a.time > b.time;
     });
 
-    // На карту — архивным слоем (тип 1 — радиация)
-    QVector<smarker> markers;
-    markers.reserve(m_points.size());
+    // На карту — как точки разведки: цвет по шкале ПАЕД и значения рядом
+    QVector<Measurement> pts;
+    pts.reserve(m_points.size());
     for (const ArchivePoint &p : std::as_const(m_points)) {
-        smarker m;
-        m.pt.latt = p.lat;
-        m.pt.longt = p.lon;
-        m.type = 1;
-        m.is_sel = false;
-        markers << m;
+        Measurement m;
+        m.id = p.id;
+        m.time = p.time;
+        m.lat = p.lat;
+        m.lon = p.lon;
+        m.paed = p.paed;              // в базе — уже то значение, что показывалось (DoseCorrection)
+        pts << m;
     }
-    emit archiveDataLoaded(markers);
+    emit archivePointsLoaded(pts);
     rebuildTable();
 }
 
@@ -205,41 +218,51 @@ void DatabasePage::rebuildTable()
                                 base.blueF() * (1 - k) + accent.blueF() * k);
     };
 
+    // Формат как в РХБ: многострочные ячейки, одинаковые по смыслу строки — в одном столбце:
+    //   столбец 1 «Параметри» — где и когда, столбец 2 — данные
     if (m_showFlights) {
         QVector<QVector<QVariant>> rows;
         for (const SessionInfo &s : std::as_const(m_flights)) {
-            QString name = s.name;
-            if (s.id == m_currentSession)
-                name += QStringLiteral("  (поточний)");
-            rows.append({s.id, name,
-                         s.startTime.toLocalTime().toString("dd.MM.yyyy HH:mm"),
-                         durationText(s.startTime, s.endTime),
-                         s.measurementCount,
-                         s.noSd ? QStringLiteral("без SD") : QStringLiteral("так")});
+            const QDateTime st = s.startTime.toLocalTime();
+            const QString params = QStringLiteral("Назва\n%1\n\nЧас:  %2\nДата: %3")
+                                       .arg(s.name, st.toString("HH:mm:ss"), st.toString("dd.MM.yyyy"));
+            QString data = QStringLiteral("Тривалість: .. %1\nВимірювань: .. %2\nSD-карта: .... %3\nСтан: ........ %4")
+                               .arg(durationText(s.startTime, s.endTime))
+                               .arg(s.measurementCount)
+                               .arg(s.noSd ? QStringLiteral("без SD") : QStringLiteral("так"),
+                                    s.id == m_currentSession ? QStringLiteral("поточний")
+                                    : s.endTime.isValid()    ? QStringLiteral("завершено")
+                                                             : QStringLiteral("не завершено"));
+            rows.append({s.id, params, data});
         }
         if (rows.isEmpty())
             rows.append({QString(), m_waitFlights ? QStringLiteral("Завантаження…") : QStringLiteral("Польотів не знайдено")});
         m_flightSection = model->getSections().size();
-        model->addSection("Польоти", {"№", "Назва", "Початок", "Тривалість", "Вимірювань", "SD"}, rows, tint(0.06));
+        model->addSection("Польоти", {"ID", "Параметри", "Дані польоту"}, rows, tint(0.06));
     }
 
     if (m_showPoints) {
         QVector<QVector<QVariant>> rows;
         rows.reserve(m_points.size());
-        for (const ArchivePoint &p : std::as_const(m_points))
-            rows.append({p.time.toLocalTime().toString("dd.MM.yy HH:mm:ss"),
-                         QString::number(double(p.paed), 'f', p.paed < 10 ? 2 : 1),
-                         pointTypeText(p.type),
-                         p.sessionId,
-                         QStringLiteral("%1, %2").arg(p.lat, 0, 'f', 6).arg(p.lon, 0, 'f', 6)});
+        for (const ArchivePoint &p : std::as_const(m_points)) {
+            const QDateTime t = p.time.toLocalTime();
+            const QString params = QStringLiteral("Координати\nш: %1\nд: %2\n\nЧас:  %3\nДата: %4")
+                                       .arg(p.lat, 0, 'f', 4).arg(p.lon, 0, 'f', 4)
+                                       .arg(t.toString("HH:mm:ss"), t.toString("dd.MM.yyyy"));
+            const QString data = QStringLiteral("ПАЕД: .... %1 мкЗв/г\nТип: ..... %2\nПоліт: ... №%3")
+                                     .arg(QString::number(double(p.paed), 'f', p.paed < 10 ? 2 : 1),
+                                          pointTypeText(p.type))
+                                     .arg(p.sessionId);
+            rows.append({p.id, params, data});
+        }
         if (rows.isEmpty())
             rows.append({QString(), QStringLiteral("Точок не знайдено")});
         m_pointSection = model->getSections().size();
-        model->addSection("Точки", {"Час", "ПАЕД, мкЗв/год", "Тип", "Політ №", "Координати"}, rows, tint(0.12));
+        model->addSection("Точки", {"ID", "Параметри", "Радіація"}, rows, tint(0.12));
     }
 
-    tableNavigator->updateSectionList();
     view->resizeColumnsToContents();
+    view->resizeRowsToContents();
 }
 
 QPair<int, int> DatabasePage::locate(int row) const

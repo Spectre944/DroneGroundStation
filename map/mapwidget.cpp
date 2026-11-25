@@ -1168,6 +1168,7 @@ void MapWidget::setupLayers()
     geometryLayer    = new GeometryLayer(store, this);
     archiveLayer     = new ThreatLayer(ThreatLayer::Kind::Archive, this);
     measurementLayer = new MeasurementLayer(&doseScale, this);
+    archivePointsLayer = new MeasurementLayer(&doseScale, this);
     threatLayer      = new ThreatLayer(ThreatLayer::Kind::Active, this);
     vehicleLayer     = new VehicleLayer(this);
     doseLegend       = new DoseLegendLayer(&doseScale, measurementLayer, doseGridLayer, this);
@@ -1200,6 +1201,7 @@ void MapWidget::setupLayers()
     addLayer(sessionLayer);
     addLayer(geometryLayer);
     addLayer(archiveLayer);
+    addLayer(archivePointsLayer);
     addLayer(measurementLayer);
     addLayer(threatLayer);
     addLayer(vehicleLayer);
@@ -1251,6 +1253,16 @@ void MapWidget::setupConnections()
 
     // --- точки измерений ---
     connect(measurementLayer, &MeasurementLayer::measurementSelected, this, &MapWidget::measurementClicked);
+    connect(archivePointsLayer, &MeasurementLayer::measurementSelected, this,
+            [this](qint64, int index) { emit archiveThreatClicked(index); });
+    connect(archivePointsLayer, &MeasurementLayer::centerRequested, this, [this](double lat, double lon) {
+        smarker m;
+        m.pt.latt = lat;
+        m.pt.longt = lon;
+        m.type = 0;
+        m.is_sel = false;
+        centerOnPoint(m);               // со снятием слежения за дроном
+    });
     connect(measurementLayer, &MeasurementLayer::centerRequested, this, [this](double lat, double lon) {
         smarker m;
         m.pt.latt = lat;
@@ -1698,7 +1710,10 @@ void MapWidget::setupFilterMenu()
     btnFilter->setMenu(filterMenu);
 
     addFilter("Активні загрози",   true, [this](bool on) { threatLayer->setVisible(on); });
-    addFilter("Архівні дані",      true, [this](bool on) { archiveLayer->setVisible(on); });
+    addFilter("Архівні дані",      true, [this](bool on) {
+        archiveLayer->setVisible(on);
+        archivePointsLayer->setVisible(on);              // точки поиска по базе
+    });
     addFilter("Маркер дрона",      true, [this](bool on) { vehicleLayer->setVehicleVisible(on); });
     addFilter("Шлях дрона",        true, [this](bool on) { vehicleLayer->setPathVisible(on); });
     addFilter("Область пошуку",    true, [this](bool on) { searchLayer->setVisible(on); });
@@ -1791,11 +1806,22 @@ void MapWidget::clearThreadLayerData()
 void MapWidget::clearArchiveThreadLayerData()
 {
     archiveLayer->clear();
+    archivePointsLayer->clear();
     searchLayer->clear();
 }
 
 void MapWidget::markSelectedDanger(int index)        { threatLayer->selectAndCenter(index); }
 void MapWidget::markSelectedArchiveDanger(int index) { archiveLayer->selectAndCenter(index); }
+
+void MapWidget::setArchivePoints(const QVector<Measurement> &points)
+{
+    archivePointsLayer->setMeasurements(points);
+}
+
+void MapWidget::selectArchivePoint(int index)
+{
+    archivePointsLayer->selectIndexAndCenter(index);
+}
 
 void MapWidget::activeSearchAreaRecived(QString coordinates)
 {

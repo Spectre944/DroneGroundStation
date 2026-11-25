@@ -129,6 +129,7 @@ public:
     // Карточка наведённой/выбранной точки - самый верх, рисует DoseLegendLayer
     void drawCardOverlay(QPainter &p);
     void selectAndCenter(qint64 measurementId);
+    void selectIndexAndCenter(int index);        ///< по номеру точки в слое (таблица «База даних»)
 
     void draw(QPainter &p) override;
     bool mouseMove(QMouseEvent *e) override;

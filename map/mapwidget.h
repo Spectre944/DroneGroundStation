@@ -730,6 +730,14 @@ public slots:
     void clearArchiveThreadLayerData();
     void markSelectedDanger(int index);
     void markSelectedArchiveDanger(int index);
+
+    /**
+        @brief Точки, найденные на странице «База даних» (DroneCore::queryArchive).
+        @note  Рисуются так же, как точки разведки: цвет по шкале ПАЕД и значения рядом
+               (отдельный MeasurementLayer). Клик по точке — archiveThreatClicked(index).
+    */
+    void setArchivePoints(const QVector<Measurement> &points);
+    void selectArchivePoint(int index);
     void activeSearchAreaRecived(QString coordinates);
 
     // --- данные разведки (Ф5, Ф7, Ф8): подключаются к DroneCore ---
@@ -827,6 +835,7 @@ private:
     DoseColorScale    doseScale;
     DoseGridLayer    *doseGridLayer = nullptr;
     MeasurementLayer *measurementLayer = nullptr;
+    MeasurementLayer *archivePointsLayer = nullptr;   ///< точки поиска по базе
     DoseLegendLayer  *doseLegend = nullptr;
     DoseTestFlight   *testFlight = nullptr;
 

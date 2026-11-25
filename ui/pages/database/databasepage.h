@@ -47,7 +47,7 @@ signals:
     void querySearchAreaFormed(const QString&);
     void clearArchiveMapDataRequested();
     void archiveTableThreatClicked(int);
-    void archiveDataLoaded(const QVector<smarker> &markers);
+    void archivePointsLoaded(const QVector<Measurement> &points);   ///< найденные точки → на карту
 
     void flightsRequested();                          ///< → DroneCore::listSessions
     void pointsRequested(const SessionFilter &filter);///< → DroneCore::queryArchive
@@ -68,7 +68,6 @@ private:
 
     StickyTableModel *model = nullptr;
     StickyTableView  *view = nullptr;
-    TableNavigator   *tableNavigator = nullptr;
 
     // Результаты последнего поиска
     QVector<SessionInfo>  m_flights;

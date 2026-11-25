@@ -11,6 +11,7 @@
 #include <QVBoxLayout>
 #include <utility>
 
+#include "ui/components/button/toggleswitch.h"
 #include "ui/modules/coreTexts/coretexts.h"
 
 namespace {
@@ -37,6 +38,19 @@ QSpinBox *spin(int min, int max, int value, const QString &suffix, QWidget *pare
     return s;
 }
 
+QLabel *titleLabel(const QString &title, const QString &ids, QWidget *parent)
+{
+    return new QLabel(QStringLiteral("%1  <span style='color:#8A96A3'>%2</span>").arg(title.toHtmlEscaped(), ids), parent);
+}
+
+QLabel *resultLabel(QWidget *parent)
+{
+    auto *l = new QLabel(parent);
+    l->setWordWrap(true);
+    l->hide();
+    return l;
+}
+
 } // namespace
 
 DroneCommandsWindow::DroneCommandsWindow(QWidget *parent)
@@ -57,76 +71,104 @@ void DroneCommandsWindow::buildUi()
     m_state->setWordWrap(true);
     root->addWidget(m_state);
 
-    root->addWidget(addGroup(tr("Параметри розвідки"),       {5, 6, 7, 9, 11}));
-    root->addWidget(addGroup(tr("Вимірювання і спектр"),     {10, 12}));
-    root->addWidget(addGroup(tr("Радіомовчання"),            {13, 14}));
-    root->addWidget(addGroup(tr("Завершення"),               {8}));
+    auto makeGroup = [this](const QString &title) {
+        auto *box = new QGroupBox(title, this);
+        auto *grid = new QGridLayout(box);
+        grid->setColumnStretch(0, 1);
+        grid->setHorizontalSpacing(10);
+        return std::make_pair(box, grid);
+    };
+
+    // --- Спектр і радіомовчання: переключатели сверху ---
+    {
+        auto [box, grid] = makeGroup(tr("Спектр і радіомовчання"));
+        m_spectrum.onId = 9;
+        m_spectrum.onValue = 3;
+        m_spectrum.offId = 12;
+        addToggleRow(grid, 0, m_spectrum, tr("Набір спектра"), QStringLiteral("ID09=3 / ID12"));
+
+        QSpinBox *s = spin(0, 65535, 60, tr(" с"), box);
+        s->setSpecialValueText(tr("до ID12"));
+        addButtonRow(grid, 1, 11, tr("Час набору спектра"), s, tr("Задати"));
+
+        m_silence.onId = 13;
+        m_silence.offId = 14;
+        addToggleRow(grid, 2, m_silence, tr("Радіомовчання"), QStringLiteral("ID13 / ID14"));
+        root->addWidget(box);
+    }
+
+    // --- Параметри розвідки ---
+    {
+        auto [box, grid] = makeGroup(tr("Параметри розвідки"));
+        addButtonRow(grid, 0, 5, tr("Коефіцієнт дублювання"), spin(2, 5, 2, QString(), box), tr("Задати"));
+        addButtonRow(grid, 1, 6, tr("Інтервал вимірювань"), spin(1, 65535, 60, tr(" с"), box), tr("Задати"));
+        addButtonRow(grid, 2, 7, tr("Відстань між вимірюваннями"), spin(1, 65535, 100, tr(" м"), box), tr("Задати"));
+        auto *c = new QComboBox(box);
+        c->addItems({tr("За командою оператора"), tr("За часом"), tr("За відстанню")});   // 3 — переключатель спектра
+        c->setCurrentIndex(2);
+        addButtonRow(grid, 3, 9, tr("Режим розвідки"), c, tr("Задати"));
+        root->addWidget(box);
+    }
+
+    // --- Вимірювання ---
+    {
+        auto [box, grid] = makeGroup(tr("Вимірювання"));
+        addButtonRow(grid, 0, 10, tr("Виміряти зараз"), nullptr, tr("Виміряти"));
+        root->addWidget(box);
+    }
+
+    // --- Завершення ---
+    {
+        auto [box, grid] = makeGroup(tr("Завершення"));
+        addButtonRow(grid, 0, 8, tr("Закінчити розвідку"), nullptr, tr("Закінчити"));
+        root->addWidget(box);
+    }
     root->addStretch();
 }
 
-QWidget *DroneCommandsWindow::addGroup(const QString &title, const QList<quint8> &ids)
-{
-    auto *box = new QGroupBox(title, this);
-    auto *grid = new QGridLayout(box);
-    grid->setColumnStretch(0, 1);
-    grid->setColumnStretch(3, 1);
-    grid->setHorizontalSpacing(10);
-
-    int row = 0;
-    for (quint8 id : ids) {
-        switch (id) {
-        case 5:  addRow(grid, row++, id, tr("Коефіцієнт дублювання"), spin(2, 5, 2, QString(), box), tr("Задати")); break;
-        case 6:  addRow(grid, row++, id, tr("Інтервал вимірювань"), spin(1, 65535, 60, tr(" с"), box), tr("Задати")); break;
-        case 7:  addRow(grid, row++, id, tr("Відстань між вимірюваннями"), spin(1, 65535, 100, tr(" м"), box), tr("Задати")); break;
-        case 9: {
-            auto *c = new QComboBox(box);
-            c->addItems({tr("За командою оператора"), tr("За часом"), tr("За відстанню"), tr("Набір спектра")});
-            c->setCurrentIndex(2);
-            addRow(grid, row++, id, tr("Режим розвідки"), c, tr("Задати"));
-            break;
-        }
-        case 11: {
-            QSpinBox *s = spin(0, 65535, 60, tr(" с"), box);
-            s->setSpecialValueText(tr("до ID12"));
-            addRow(grid, row++, id, tr("Час набору спектра"), s, tr("Задати"));
-            break;
-        }
-        case 10: addRow(grid, row++, id, tr("Виміряти зараз"), nullptr, tr("Виміряти")); break;
-        case 12: addRow(grid, row++, id, tr("Зупинити набір спектра"), nullptr, tr("Зупинити")); break;
-        case 13: addRow(grid, row++, id, tr("Увімкнути радіомовчання"), nullptr, tr("Увімкнути")); break;
-        case 14: addRow(grid, row++, id, tr("Вийти з радіомовчання"), nullptr, tr("Вийти")); break;
-        case 8:  addRow(grid, row++, id, tr("Закінчити розвідку"), nullptr, tr("Закінчити")); break;
-        default: break;
-        }
-    }
-    return box;
-}
-
-void DroneCommandsWindow::addRow(QGridLayout *grid, int row, quint8 id, const QString &title,
-                           QWidget *value, const QString &buttonText)
+void DroneCommandsWindow::addButtonRow(QGridLayout *grid, int row, quint8 id, const QString &title,
+                                       QWidget *value, const QString &buttonText)
 {
     Row r;
     r.id = id;
     r.value = value;
 
-    auto *label = new QLabel(QStringLiteral("%1  <span style='color:#8A96A3'>ID%2</span>")
-                                 .arg(title.toHtmlEscaped()).arg(id, 2, 10, QLatin1Char('0')),
-                             grid->parentWidget());
-    grid->addWidget(label, row * 2, 0);
+    QWidget *parent = grid->parentWidget();
+    grid->addWidget(titleLabel(title, QStringLiteral("ID%1").arg(id, 2, 10, QLatin1Char('0')), parent), row * 2, 0);
     if (value)
         grid->addWidget(value, row * 2, 1);
 
-    r.button = new QPushButton(buttonText, grid->parentWidget());
+    r.button = new QPushButton(buttonText, parent);
     r.button->setMinimumWidth(96);
     grid->addWidget(r.button, row * 2, 2);
 
-    r.result = new QLabel(grid->parentWidget());
-    r.result->setWordWrap(true);
-    r.result->hide();
+    r.result = resultLabel(parent);
     grid->addWidget(r.result, row * 2 + 1, 0, 1, 3);
 
-    connect(r.button, &QPushButton::clicked, this, [this, id] { send(id); });
+    connect(r.button, &QPushButton::clicked, this, [this, id] {
+        const Row &rr = m_rows[id];
+        send(id, valueOf(rr), rr.result);
+    });
     m_rows.insert(id, r);
+}
+
+void DroneCommandsWindow::addToggleRow(QGridLayout *grid, int row, Toggle &t, const QString &title, const QString &ids)
+{
+    QWidget *parent = grid->parentWidget();
+    grid->addWidget(titleLabel(title, ids, parent), row * 2, 0);
+
+    t.sw = new ToggleSwitch(parent);
+    grid->addWidget(t.sw, row * 2, 1, 1, 2, Qt::AlignRight);
+    t.result = resultLabel(parent);
+    grid->addWidget(t.result, row * 2 + 1, 0, 1, 3);
+
+    Toggle *tp = &t;
+    connect(t.sw, &ToggleSwitch::toggleRequested, this, [this, tp](bool wantOn) {
+        if (wantOn)
+            send(tp->onId, tp->onValue, tp->result, tp->sw);
+        else
+            send(tp->offId, 0, tp->result, tp->sw);
+    });
 }
 
 int DroneCommandsWindow::valueOf(const Row &r) const
@@ -144,7 +186,7 @@ bool DroneCommandsWindow::confirm(quint8 id, int value)
     if (id == 8)
         text = tr("Логер закриє файл поточної області, зупинить вимірювання і перейде в «Повернення».\n\nЗакінчити розвідку?");
     else if (id == 13)
-        text = tr("Дрон перестане передавати дані й відповідати на команди до команди «Вийти з радіомовчання» (ID14).\n\nУвімкнути радіомовчання?");
+        text = tr("Дрон перестане передавати дані й відповідати на команди до виходу з радіомовчання (ID14).\n\nУвімкнути радіомовчання?");
     else if (id == 9 && value == 3)
         text = tr("Для набору спектра дрон має зависнути над точкою.\n\nПочати набір спектра?");
     else if (id == 12 && m_logger.spectrumStage == SpectrumStage::Collecting)
@@ -154,17 +196,27 @@ bool DroneCommandsWindow::confirm(quint8 id, int value)
     return QMessageBox::question(this, windowTitle(), text) == QMessageBox::Yes;
 }
 
-void DroneCommandsWindow::send(quint8 id)
+QString DroneCommandsWindow::blockReason(quint8 id, bool busy) const
 {
-    auto it = m_rows.find(id);
-    if (it == m_rows.end() || !it->button->isEnabled())
-        return;
+    if (m_readOnly)
+        return tr("Відкрито минулий політ");
+    if (m_link.state == LinkState::Closed)
+        return tr("Радіомодем не підключено");
+    if (busy)
+        return tr("Очікується відповідь на попередню команду");
+    if (!m_allowed.contains(id))
+        return tr("Недоступна в поточному режимі логера");
+    return QString();
+}
 
-    const int value = valueOf(*it);
+void DroneCommandsWindow::send(quint8 id, int value, QLabel *result, ToggleSwitch *sw)
+{
+    if (!blockReason(id, m_link.commandPending || m_pendingId != 0).isEmpty())
+        return;
     if (!confirm(id, value))
         return;
-    updateState();                       // за время подтверждения могло всё поменяться
-    if (!it->button->isEnabled())
+    // за время подтверждения всё могло поменяться
+    if (!blockReason(id, m_link.commandPending || m_pendingId != 0).isEmpty())
         return;
 
     CommandRequest r;
@@ -173,10 +225,14 @@ void DroneCommandsWindow::send(quint8 id)
 
     m_pendingId = id;
     m_pendingSeq = 0;
+    m_pendingResult = result;
+    m_pendingSwitch = sw;
     m_sending = true;
     m_early.clear();
-    it->result->setText(QStringLiteral("<span style='color:#8A96A3'>%1</span>").arg(tr("Відправлено, очікується відповідь…")));
-    it->result->show();
+    if (sw)
+        sw->setPending(true);
+    result->setText(QStringLiteral("<span style='color:#8A96A3'>%1</span>").arg(tr("Відправлено, очікується відповідь…")));
+    result->show();
     updateState();
     emit sendRequested(r);               // MainWindow: seq = core->sendCommand(r); onCommandSent(seq)
 }
@@ -206,15 +262,20 @@ void DroneCommandsWindow::onCommandFinished(const CommandOutcome &o)
     if (o.request.seq != m_pendingSeq)
         return;
 
-    auto it = m_rows.find(m_pendingId);
+    QLabel *result = m_pendingResult;
+    ToggleSwitch *sw = m_pendingSwitch;
     m_pendingId = 0;
     m_pendingSeq = 0;
-    if (it != m_rows.end())
-        showResult(*it, o);
+    m_pendingResult = nullptr;
+    m_pendingSwitch = nullptr;
+    if (sw)
+        sw->setPending(false);           // положение переключателя придёт с LoggerStatus
+    if (result)
+        showResult(result, o);
     updateState();
 }
 
-void DroneCommandsWindow::showResult(Row &r, const CommandOutcome &o)
+void DroneCommandsWindow::showResult(QLabel *result, const CommandOutcome &o)
 {
     const QString time = (o.finishTime.isValid() ? o.finishTime : QDateTime::currentDateTime())
                              .toLocalTime().toString("HH:mm:ss");
@@ -222,9 +283,11 @@ void DroneCommandsWindow::showResult(Row &r, const CommandOutcome &o)
     if (o.result == CommandResult::NoAnswer)
         text += tr(" — можна повторити через 20 с");
     const char *color = CoreTexts::isSuccess(o) ? "#2E9E6A" : "#E5484D";
-    r.result->setText(QStringLiteral("<span style='color:%1'>%2 · %3</span>")
-                          .arg(QLatin1String(color), time, text.toHtmlEscaped()));
-    r.result->show();
+    result->setText(QStringLiteral("<span style='color:%1'>%2 · ID%3 · %4</span>")
+                        .arg(QLatin1String(color), time)
+                        .arg(o.request.id, 2, 10, QLatin1Char('0'))
+                        .arg(text.toHtmlEscaped()));
+    result->show();
 }
 
 void DroneCommandsWindow::onAllowedCommands(const QList<quint8> &ids)
@@ -243,10 +306,12 @@ void DroneCommandsWindow::onLinkStatus(const LinkStatus &status)
 
 void DroneCommandsWindow::onLoggerStatus(const LoggerStatus &status)
 {
-    const bool changed = status.mode != m_logger.mode || status.radioSilence != m_logger.radioSilence;
     m_logger = status;
-    if (changed)
-        updateState();
+    // Переключатели показывают фактическое состояние логгера
+    m_spectrum.sw->setOn(status.spectrumStage == SpectrumStage::Preparing
+                         || status.spectrumStage == SpectrumStage::Collecting);
+    m_silence.sw->setOn(status.radioSilence);
+    updateState();
 }
 
 void DroneCommandsWindow::setReadOnly(bool readOnly)
@@ -259,16 +324,18 @@ void DroneCommandsWindow::updateState()
 {
     const bool busy = m_link.commandPending || m_pendingId != 0;
     for (Row &r : m_rows) {
-        const bool allowed = m_allowed.contains(r.id);
-        const bool on = allowed && !busy && !m_readOnly && m_link.state != LinkState::Closed;
-        r.button->setEnabled(on);
+        const QString reason = blockReason(r.id, busy);
+        r.button->setEnabled(reason.isEmpty());
         if (r.value)
-            r.value->setEnabled(on);
-        r.button->setToolTip(on ? QString()
-                             : m_readOnly ? tr("Відкрито минулий політ")
-                             : m_link.state == LinkState::Closed ? tr("Радіомодем не підключено")
-                             : busy ? tr("Очікується відповідь на попередню команду")
-                                    : tr("Недоступна в поточному режимі логера"));
+            r.value->setEnabled(reason.isEmpty());
+        r.button->setToolTip(reason);
+    }
+    for (Toggle *t : {&m_spectrum, &m_silence}) {
+        // нужна та команда, что переведёт в другое положение
+        const quint8 next = t->sw->isOn() ? t->offId : t->onId;
+        const QString reason = blockReason(next, busy && t->sw != m_pendingSwitch);
+        t->sw->setEnabled(reason.isEmpty() && !t->sw->isPending());
+        t->sw->setToolTip(reason.isEmpty() ? QStringLiteral("ID%1").arg(next, 2, 10, QLatin1Char('0')) : reason);
     }
 
     // Строка состояния сверху
