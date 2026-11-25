@@ -133,6 +133,10 @@ public:
     void setTooltip(const QString &text);
     void setTextUnits(const QString &text);
     void setDataRange(double, double);
+    /// Знаков после запятой (по умолчанию 2); шаг стрелок — одна единица последнего знака
+    void setDecimals(int decimals);
+    /// Текст вместо минимального значения (по умолчанию «Вимкнено»)
+    void setSpecialValueText(const QString &text);
 
     QVariant getValue();
     void setValue(const QVariant& value);

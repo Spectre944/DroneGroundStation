@@ -1,3 +1,4 @@
+#include <cmath>
 #include "settingsfield.h"
 #include "qtimer.h"
 #include "ui_settingsfield.h"
@@ -295,6 +296,17 @@ void SettingsFieldDoubleSpinBox::setDataRange(double min, double max)
 {
     doubleSpinbox->setRange(min, max);
     doubleSpinbox->setToolTip(QString("Мінімальне значення: %1\nМаксимальне значення: %2").arg(min).arg(max));
+}
+
+void SettingsFieldDoubleSpinBox::setDecimals(int decimals)
+{
+    doubleSpinbox->setDecimals(decimals);
+    doubleSpinbox->setSingleStep(std::pow(10.0, -decimals));
+}
+
+void SettingsFieldDoubleSpinBox::setSpecialValueText(const QString &text)
+{
+    doubleSpinbox->setSpecialValueText(text);
 }
 
 QVariant SettingsFieldDoubleSpinBox::getValue()

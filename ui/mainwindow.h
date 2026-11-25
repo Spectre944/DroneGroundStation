@@ -20,6 +20,8 @@ class InstrumentsPage;
 class SettingsPage;
 class AlarmDrawer;
 class DroneCore;
+class DroneCommandsWindow;
+class SdImport;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -73,6 +75,25 @@ private:
     /** @brief Меню «Дії»: команды логгеру, которые нужны с любой страницы. */
     QAction        *actFinishRecon = nullptr;   ///< «Закінчити розвідку» — ID08
     quint32         finishReconSeq = 0;         ///< номер отправленной ID08 (0 — не ждём)
+    QAction        *actCommands = nullptr;      ///< «Команди дрону…» — окно ID05–ID14 (Р2-4)
+    QAction        *actSdImport = nullptr;      ///< «Імпорт з SD-карти…» (Р2-6)
+    DroneCommandsWindow  *commandsWindow = nullptr;
+    SdImport       *sdImportWindow = nullptr;
+
+    /**
+        @brief Полёты (Р2-2): текущий полёт и просмотр прошлого.
+        @note  Все данные полёта приходят одним DroneCore::sessionData. Он означает либо
+               «открыт прошлый полёт» (просмотр), либо — если мы сами перечитали текущий
+               при «Повернутися до поточного» — возврат журнала и тревог к живому полёту.
+    */
+    SessionInfo     currentSession;             ///< id = 0 — полёта нет
+    bool            viewingSession = false;
+    bool            restoringLive = false;      ///< ждём sessionData текущего полёта для возврата
+    bool            openLatestAfterList = false;///< импорт SD: открыть последний полёт после listSessions
+    void openFlight(qint64 sessionId);
+    void returnToCurrentFlight();
+    void applySessionView(const SessionData &d);
+    void applyLiveRestore(const SessionData &d);
     QList<int>      lastSizes;              // ширины до сворачивания стека
 
     ReconPage       *reconPage       = nullptr;

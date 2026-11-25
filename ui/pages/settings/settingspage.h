@@ -59,6 +59,13 @@ public:
     static constexpr char KEY_GRID_CELL[]      = "core/gridCellM";
     static constexpr char KEY_GRID_RADIUS[]    = "core/gridRadiusM";
     static constexpr char KEY_GRID_POWER[]     = "core/gridPower";
+    static constexpr char KEY_CORR_ON[]        = "core/correctionOn";
+    static constexpr char KEY_CORR_MU[]        = "core/correctionMu";      ///< correctionCoeffs[0], 1/м
+    static constexpr char KEY_CORR_MIN[]       = "core/correctionMinM";
+    static constexpr char KEY_CORR_MAX[]       = "core/correctionMaxM";
+    static constexpr char KEY_CSV_SEP[]        = "core/csvDecimalSep";
+    static constexpr char KEY_CSV_LANG[]       = "core/language";
+    static constexpr char KEY_DB_PATH[]        = "core/dbPath";
 
     /**
         @brief Радиус интерполяции по умолчанию, м.
@@ -120,6 +127,11 @@ private:
     void setupDeviceFields();
     void setupReconFields();
     void setupGridFields();
+    void setupLinkFields();          ///< Р2-5: связь, размер области
+    void setupCorrectionFields();    ///< Р2-5: пересчёт на 1 м
+    void setupExportFields();        ///< Р2-5: CSV
+    void selectDbFile();             ///< Р2-5: файл базы полётов
+    void updateDbFieldText();
     void setupProgramFields();
     void loadSerialNumbersFromFile();
     void selectMapFile();
@@ -157,6 +169,24 @@ private:
     SettingsFieldSpinBox  *m_distance  = nullptr;
     SettingsFieldCombobox *m_dup       = nullptr;
     SettingsFieldSpinBox  *m_spectrum  = nullptr;
+
+    // Зв'язок і область
+    SettingsFieldSpinBox       *m_linkTimeout = nullptr;
+    SettingsFieldDoubleSpinBox *m_maxArea     = nullptr;
+
+    // Перерахунок на 1 м
+    SettingsFieldCombobox      *m_corrOn  = nullptr;
+    SettingsFieldDoubleSpinBox *m_corrMu  = nullptr;
+    SettingsFieldSpinBox       *m_corrMin = nullptr;
+    SettingsFieldSpinBox       *m_corrMax = nullptr;
+
+    // Експорт CSV
+    SettingsFieldCombobox *m_csvSep  = nullptr;
+    SettingsFieldCombobox *m_csvLang = nullptr;
+
+    // База польотів
+    SettingsFieldButton *m_dbField = nullptr;
+    QString              m_dbPath;          ///< пусто — flights.db рядом с программой
 
     // Теплова карта
     SettingsFieldSpinBox       *m_gridCell   = nullptr;

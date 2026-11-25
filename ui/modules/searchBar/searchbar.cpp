@@ -46,15 +46,17 @@ void SearchBar::setupUI()
 
     //-------------------------------------------------------------------------//
 
-    ui->pushButtonFlag->setInitialText("Тип точки");
+    ui->pushButtonFlag->setInitialText("Тип даних");
 
     // Пока сохраняются только точки; остальные типы (флаги, маршрути, об'єкти,
     // зразки, області) вернуть сюда, когда появятся в БД
     pointFlag = new QAction("Точки", this);
     pointFlag->setCheckable(true);
+    flightFlag = new QAction("Польоти", this);      // Р2-2: список полётов с просмотром
+    flightFlag->setCheckable(true);
 
     QList<QAction*> flagActionList;
-    flagActionList << pointFlag;
+    flagActionList << pointFlag << flightFlag;
 
     ui->pushButtonFlag->addActions(flagActionList);
 
@@ -323,6 +325,19 @@ WHERE 1=1
     mapQuery += getSortFilter();
 
     emit mapQueryRequested(mapQuery);
+
+    // Поиск через ядро: те же условия, но без SQL (ядро строит запрос само)
+    QString area;
+    if (searchInArea && !areaCoordinates.isEmpty())
+        area = areaCoordinates;
+    else if (radiusMeters > 0)
+        area = CirclePolygonGenerator::generateCirclePolygonAccurate(centerLat, centerLon, radiusMeters, 16);
+    bool points = pointFlag->isChecked();
+    bool flights = flightFlag->isChecked();
+    if (!points && !flights)
+        points = flights = true;          // ничего не выбрано — показать всё
+    const int sort = sortByTimeOldFirst->isChecked() ? 1 : sortByRadiation->isChecked() ? 2 : 0;
+    emit archiveSearchRequested(points, flights, timeFrom, timeTo, area, sort);
 
 }
 

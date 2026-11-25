@@ -33,6 +33,7 @@
 #include "maplayer.h"
 #include "drawinglayer.h"
 #include "doselayers.h"
+#include "sessionviewlayer.h"
 #include "coords/coordhandler.h"   // CoordHandler
 #include "settings/settings.h"       // Settings
 #include "utilities/utilities.h"
@@ -48,6 +49,8 @@ class QContextMenuEvent;
 class QResizeEvent;
 class QPaintEvent;
 class DoseTestFlight;
+class QLabel;
+class QFrame;
 
 extern mapcore m_core;
 
@@ -696,6 +699,7 @@ signals:
     void threatClicked(int index);
     void archiveThreatClicked(int index);
     void measurementClicked(qint64 id, int index);   // клик по точке измерения
+    void sessionViewCloseRequested();                // кнопка «Повернутися до поточного» на плашке просмотра
     void drawingCanceled();
 
     // Разведка назначается через контекстное меню фигуры (вместо ReconAreaLayer)
@@ -726,6 +730,14 @@ public slots:
     void clearArchiveThreadLayerData();
     void markSelectedDanger(int index);
     void markSelectedArchiveDanger(int index);
+
+    /**
+        @brief Точки, найденные на странице «База даних» (DroneCore::queryArchive).
+        @note  Рисуются так же, как точки разведки: цвет по шкале ПАЕД и значения рядом
+               (отдельный MeasurementLayer). Клик по точке — archiveThreatClicked(index).
+    */
+    void setArchivePoints(const QVector<Measurement> &points);
+    void selectArchivePoint(int index);
     void activeSearchAreaRecived(QString coordinates);
 
     // --- данные разведки (Ф5, Ф7, Ф8): подключаются к DroneCore ---
@@ -753,6 +765,18 @@ public slots:
     void clearDoseData();                                      // точки + сетка
     void setDoseThresholds(float warn, float alarm);           // CoreSettings::warnLevel / alarmLevel
     void selectMeasurement(qint64 id);                         // из таблицы: выделить + центрировать
+
+    /**
+        @brief Просмотр прошлого полёта (Р2-2): маршрут, точки, области, его тепловая карта.
+        @note  Живые точки и сетка текущего полёта на это время не теряются: они копятся
+               и возвращаются в closeSessionView(). Тепловая карта прошлого полёта приходит
+               от ядра отдельным gridUpdated сразу после sessionData.
+               Сверху по центру — плашка «Перегляд польоту …» с кнопкой возврата
+               (sessionViewCloseRequested).
+    */
+    void showSessionView(const SessionData &data);
+    void closeSessionView();
+    bool isSessionView() const { return m_viewing; }
 
     // ТЕСТ: полёт "змейкой" вокруг центра карты. live = точки приходят по таймеру,
     // сетка пересчитывается на лету (как будет от ядра); иначе - всё сразу.
@@ -811,8 +835,22 @@ private:
     DoseColorScale    doseScale;
     DoseGridLayer    *doseGridLayer = nullptr;
     MeasurementLayer *measurementLayer = nullptr;
+    MeasurementLayer *archivePointsLayer = nullptr;   ///< точки поиска по базе
     DoseLegendLayer  *doseLegend = nullptr;
     DoseTestFlight   *testFlight = nullptr;
+
+    // --- просмотр прошлого полёта (Р2-2) ---
+    SessionViewLayer    *sessionLayer = nullptr;
+    QFrame              *sessionBanner = nullptr;
+    QLabel              *sessionBannerText = nullptr;
+    bool                 m_viewing = false;
+    bool                 m_expectViewGrid = false;      ///< ждём сетку прошлого полёта
+    QVector<GeoPoint>    m_viewArea;                    ///< по ней узнаём сетку прошлого полёта
+    QVector<Measurement> m_liveMeasurements;            ///< точки текущего полёта (на время просмотра)
+    GridData             m_liveGrid;                    ///< последняя сетка текущего полёта
+    void applyGrid(const GridData &grid);
+    void placeSessionBanner();
+    void fitToPoints(const QVector<QPointF> &norm);      ///< зум и центр, чтобы всё было видно
     // GeometryInfoWidget *geometryInfoWidget = nullptr;
 
     // --- перетаскивание ---

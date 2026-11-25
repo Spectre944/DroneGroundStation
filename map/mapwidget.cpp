@@ -2,6 +2,8 @@
 #include "ui_mapwidget.h"
 
 #include <QComboBox>
+#include <QFrame>
+#include <QLabel>
 #include <QDir>
 #include <QFile>
 #include <QPainter>
@@ -1166,20 +1168,40 @@ void MapWidget::setupLayers()
     geometryLayer    = new GeometryLayer(store, this);
     archiveLayer     = new ThreatLayer(ThreatLayer::Kind::Archive, this);
     measurementLayer = new MeasurementLayer(&doseScale, this);
+    archivePointsLayer = new MeasurementLayer(&doseScale, this);
     threatLayer      = new ThreatLayer(ThreatLayer::Kind::Active, this);
     vehicleLayer     = new VehicleLayer(this);
     doseLegend       = new DoseLegendLayer(&doseScale, measurementLayer, doseGridLayer, this);
     drawing          = new DrawingLayer(this);
 
     doseGridLayer->setPointsLayer(measurementLayer);
+    sessionLayer = new SessionViewLayer(this);
+
+    // Плашка просмотра прошлого полёта — сверху по центру карты (Р2-2)
+    sessionBanner = new QFrame(this);
+    sessionBanner->setObjectName("sessionBanner");
+    auto *bl = new QHBoxLayout(sessionBanner);
+    bl->setContentsMargins(12, 6, 6, 6);
+    bl->setSpacing(10);
+    sessionBannerText = new QLabel(sessionBanner);
+    sessionBannerText->setWordWrap(true);
+    auto *back = new QPushButton("Повернутися до поточного", sessionBanner);
+    back->setObjectName("sessionBannerButton");
+    back->setCursor(Qt::PointingHandCursor);
+    bl->addWidget(sessionBannerText, 1);
+    bl->addWidget(back);
+    sessionBanner->hide();
+    connect(back, &QPushButton::clicked, this, &MapWidget::sessionViewCloseRequested);
     drawing->setPolygonVertexLimit(CoreConst::AreaMaxVertices);
 
     // Тепловая карта - под фигурами пользователя (контур области поверх неё),
     // точки измерений - над архивом, легенда - поверх всего, кроме рисования
     addLayer(searchLayer);
     addLayer(doseGridLayer);
+    addLayer(sessionLayer);
     addLayer(geometryLayer);
     addLayer(archiveLayer);
+    addLayer(archivePointsLayer);
     addLayer(measurementLayer);
     addLayer(threatLayer);
     addLayer(vehicleLayer);
@@ -1231,6 +1253,16 @@ void MapWidget::setupConnections()
 
     // --- точки измерений ---
     connect(measurementLayer, &MeasurementLayer::measurementSelected, this, &MapWidget::measurementClicked);
+    connect(archivePointsLayer, &MeasurementLayer::measurementSelected, this,
+            [this](qint64, int index) { emit archiveThreatClicked(index); });
+    connect(archivePointsLayer, &MeasurementLayer::centerRequested, this, [this](double lat, double lon) {
+        smarker m;
+        m.pt.latt = lat;
+        m.pt.longt = lon;
+        m.type = 0;
+        m.is_sel = false;
+        centerOnPoint(m);               // со снятием слежения за дроном
+    });
     connect(measurementLayer, &MeasurementLayer::centerRequested, this, [this](double lat, double lon) {
         smarker m;
         m.pt.latt = lat;
@@ -1395,6 +1427,8 @@ void MapWidget::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
     m_core.setcreensize(event->size().width(), event->size().height());
+    if (sessionBanner && sessionBanner->isVisible())
+        placeSessionBanner();
 
     update();
 }
@@ -1572,6 +1606,16 @@ void MapWidget::applyMapTheme()
         #coordFrame QComboBox:hover { border-color: %9; }
         #coordFrame QComboBox::drop-down { border: none; width: 20px; }
         #coordFrame QComboBox::down-arrow { image: url(%10); width: 10px; height: 10px; }
+        #sessionBanner {
+            background-color: %1; color: %7;
+            border: 2px solid %9; border-radius: 8px;
+        }
+        #sessionBanner QLabel { color: %7; background: transparent; }
+        #sessionBanner QPushButton {
+            background-color: %9; color: white; border: none; border-radius: 6px;
+            padding: 6px 12px; font-weight: bold;
+        }
+        #sessionBanner QPushButton:hover { background-color: %6; color: %7; }
         #coordFrame QComboBox QAbstractItemView {
             background-color: %2; color: %7; border: 1px solid %3; outline: 0;
             selection-background-color: %9; selection-color: white;
@@ -1666,7 +1710,10 @@ void MapWidget::setupFilterMenu()
     btnFilter->setMenu(filterMenu);
 
     addFilter("Активні загрози",   true, [this](bool on) { threatLayer->setVisible(on); });
-    addFilter("Архівні дані",      true, [this](bool on) { archiveLayer->setVisible(on); });
+    addFilter("Архівні дані",      true, [this](bool on) {
+        archiveLayer->setVisible(on);
+        archivePointsLayer->setVisible(on);              // точки поиска по базе
+    });
     addFilter("Маркер дрона",      true, [this](bool on) { vehicleLayer->setVehicleVisible(on); });
     addFilter("Шлях дрона",        true, [this](bool on) { vehicleLayer->setPathVisible(on); });
     addFilter("Область пошуку",    true, [this](bool on) { searchLayer->setVisible(on); });
@@ -1759,11 +1806,22 @@ void MapWidget::clearThreadLayerData()
 void MapWidget::clearArchiveThreadLayerData()
 {
     archiveLayer->clear();
+    archivePointsLayer->clear();
     searchLayer->clear();
 }
 
 void MapWidget::markSelectedDanger(int index)        { threatLayer->selectAndCenter(index); }
 void MapWidget::markSelectedArchiveDanger(int index) { archiveLayer->selectAndCenter(index); }
+
+void MapWidget::setArchivePoints(const QVector<Measurement> &points)
+{
+    archivePointsLayer->setMeasurements(points);
+}
+
+void MapWidget::selectArchivePoint(int index)
+{
+    archivePointsLayer->selectIndexAndCenter(index);
+}
 
 void MapWidget::activeSearchAreaRecived(QString coordinates)
 {
@@ -1866,9 +1924,41 @@ void MapWidget::clearActiveReconArea()
     geometryLayer->setActiveRecon({}, QDateTime());
 }
 
-void MapWidget::onMeasurement(const Measurement &m)                 { measurementLayer->addMeasurement(m); }
-void MapWidget::setMeasurements(const QVector<Measurement> &list)   { measurementLayer->setMeasurements(list); }
+void MapWidget::onMeasurement(const Measurement &m)
+{
+    m_liveMeasurements.append(m);           // живой полёт — копим всегда (нужно для возврата из просмотра)
+    if (!m_viewing)
+        measurementLayer->addMeasurement(m);
+}
+
+void MapWidget::setMeasurements(const QVector<Measurement> &list)
+{
+    m_liveMeasurements = list;
+    if (!m_viewing)
+        measurementLayer->setMeasurements(list);
+}
+
 void MapWidget::onGridUpdated(const GridData &grid)
+{
+    if (m_viewing && m_expectViewGrid) {
+        // Первая сетка после sessionData — прошлого полёта (ядро шлёт её сразу следом).
+        // Если у полёта есть область, проверяем по ней: живая сетка от другой области — не она.
+        bool same = m_viewArea.isEmpty() || grid.area.size() == m_viewArea.size();
+        for (int i = 0; same && i < m_viewArea.size(); ++i)
+            same = std::fabs(grid.area[i].lat - m_viewArea[i].lat) < 1e-7
+                && std::fabs(grid.area[i].lon - m_viewArea[i].lon) < 1e-7;
+        if (same) {
+            m_expectViewGrid = false;
+            applyGrid(grid);
+            return;
+        }
+    }
+    m_liveGrid = grid;
+    if (!m_viewing)
+        applyGrid(grid);
+}
+
+void MapWidget::applyGrid(const GridData &grid)
 {
     doseGridLayer->setGrid(grid);
 
@@ -1892,6 +1982,103 @@ void MapWidget::clearDoseData()
     measurementLayer->clear();
     measurementLayer->setAvoidPoints({});
     doseGridLayer->clear();
+    m_liveMeasurements.clear();
+    m_liveGrid = GridData();
+}
+
+// ------------------------ ПРОСМОТР ПРОШЛОГО ПОЛЁТА ------------------------ //
+
+void MapWidget::showSessionView(const SessionData &d)
+{
+    m_viewing = true;
+    m_expectViewGrid = true;
+    m_viewArea = d.areas.isEmpty() ? QVector<GeoPoint>() : d.areas.last();
+
+    measurementLayer->setMeasurements(d.measurements);
+    measurementLayer->setAvoidPoints({});
+    doseGridLayer->clear();                       // сетка прошлого полёта придёт следом
+    sessionLayer->setData(d.route, d.areas);
+
+    // Плашка: имя и время полёта
+    const QString from = d.info.startTime.toLocalTime().toString("dd.MM.yyyy HH:mm");
+    const QString to = d.info.endTime.isValid() ? d.info.endTime.toLocalTime().toString("HH:mm") : QStringLiteral("…");
+    sessionBannerText->setText(QStringLiteral("Перегляд польоту <b>%1</b><br>%2–%3 · вимірювань: %4")
+                                   .arg(d.info.name.toHtmlEscaped(), from, to)
+                                   .arg(d.measurements.size()));
+    sessionBanner->show();
+    sessionBanner->raise();
+    placeSessionBanner();
+
+    // Показать полёт целиком: маршрут, точки и области
+    QVector<QPointF> pts;
+    for (const RoutePoint &r : d.route)
+        if (r.lat != 0.0 || r.lon != 0.0)
+            pts << dosemap::mercNorm(r.lat, r.lon);
+    for (const Measurement &m : d.measurements)
+        if (m.lat != 0.0 || m.lon != 0.0)
+            pts << dosemap::mercNorm(m.lat, m.lon);
+    for (const QVector<GeoPoint> &a : d.areas)
+        for (const GeoPoint &g : a)
+            pts << dosemap::mercNorm(g.lat, g.lon);
+    fitToPoints(pts);
+    update();
+}
+
+void MapWidget::closeSessionView()
+{
+    if (!m_viewing)
+        return;
+    m_viewing = false;
+    m_expectViewGrid = false;
+    sessionLayer->clear();
+    sessionBanner->hide();
+
+    measurementLayer->setMeasurements(m_liveMeasurements);
+    if (m_liveGrid.cols > 0)
+        applyGrid(m_liveGrid);
+    else {
+        doseGridLayer->clear();
+        measurementLayer->setAvoidPoints({});
+    }
+    update();
+}
+
+void MapWidget::placeSessionBanner()
+{
+    if (!sessionBanner)
+        return;
+    // Ширина — до 680 px, но не шире карты минус кнопки по краям
+    sessionBanner->setFixedWidth(qBound(280, width() - 140, 680));
+    sessionBanner->adjustSize();
+    // по центру сверху, под рамкой координат
+    const int top = ui->coordFrame ? ui->coordFrame->geometry().bottom() + 10 : 60;
+    sessionBanner->move((width() - sessionBanner->width()) / 2, top);
+}
+
+void MapWidget::fitToPoints(const QVector<QPointF> &norm)
+{
+    if (norm.isEmpty())
+        return;
+    double x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+    for (const QPointF &n : norm) {
+        x0 = qMin(x0, n.x()); x1 = qMax(x1, n.x());
+        y0 = qMin(y0, n.y()); y1 = qMax(y1, n.y());
+    }
+    // Самый крупный зум, при котором рамка влезает в 70 % окна
+    int z = 16;
+    for (; z > 3; --z) {
+        const double world = 256.0 * double(1LL << z);
+        if ((x1 - x0) * world <= width() * 0.7 && (y1 - y0) * world <= height() * 0.7)
+            break;
+    }
+    double lat = 0, lon = 0;
+    dosemap::mercInverse(QPointF((x0 + x1) / 2, (y0 + y1) / 2), lat, lon);
+    smappoint c;
+    c.latt = lat;
+    c.longt = lon;
+    disableTracking();
+    setZoom(z);
+    setCenter(c);
 }
 
 void MapWidget::setDoseThresholds(float warn, float alarm)

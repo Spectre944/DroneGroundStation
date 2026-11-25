@@ -22,6 +22,8 @@
 #include "ui/modules/spectrumView/spectrumview.h"
 #include "classes/drone_core.h"
 #include "ui/modules/coreTexts/coretexts.h"
+#include "ui/windows/dronecommands/dronecommandswindow.h"
+#include "ui/windows/sdimport/sdimport.h"
 #include <memory>
 #include <limits>
 
@@ -110,9 +112,9 @@ void MainWindow::setupPages()
     // --- связи страниц с картой ---
     connect(settingsPage, &SettingsPage::mapFileSelected, mapWidget, &MapWidget::setMapFile);
 
-    connect(databasePage, &DatabasePage::archiveDataLoaded,            mapWidget, &MapWidget::setupdArchiveThreads);
+    connect(databasePage, &DatabasePage::archivePointsLoaded,          mapWidget, &MapWidget::setArchivePoints);
     connect(databasePage, &DatabasePage::clearArchiveMapDataRequested, mapWidget, &MapWidget::clearArchiveThreadLayerData);
-    connect(databasePage, &DatabasePage::archiveTableThreatClicked,    mapWidget, &MapWidget::markSelectedArchiveDanger);
+    connect(databasePage, &DatabasePage::archiveTableThreatClicked,    mapWidget, &MapWidget::selectArchivePoint);
     connect(databasePage, &DatabasePage::querySearchAreaFormed,        mapWidget, &MapWidget::activeSearchAreaRecived);
     connect(mapWidget, &MapWidget::archiveThreatClicked,  databasePage, &DatabasePage::onArchiveThreatClicked);
     connect(mapWidget, &MapWidget::centerPositionChanged, databasePage, &DatabasePage::onCenterMarkerChanged);
@@ -129,6 +131,27 @@ void MainWindow::setupMenu()
     actFinishRecon = actions->addAction("Закінчити розвідку");
     actFinishRecon->setToolTip("ID08: логер закриває файл області і переходить у «Повернення»");
     actFinishRecon->setEnabled(false);
+
+    // Окно команд ID05–ID14 (Р2-4) — пока отдельное окно, место на странице выберем потом
+    commandsWindow = new DroneCommandsWindow(this);
+    commandsWindow->hide();
+    actCommands = actions->addAction("Команди дрону…");
+    connect(actCommands, &QAction::triggered, this, [this] {
+        commandsWindow->show();
+        commandsWindow->raise();
+        commandsWindow->activateWindow();
+    });
+
+    // Импорт SD (Р2-6)
+    actions->addSeparator();
+    sdImportWindow = new SdImport(this);
+    sdImportWindow->hide();
+    actSdImport = actions->addAction("Імпорт з SD-карти…");
+    connect(actSdImport, &QAction::triggered, this, [this] {
+        sdImportWindow->show();
+        sdImportWindow->raise();
+        sdImportWindow->activateWindow();
+    });
 
     indicatorPanel = new IndicatorPanel(bar);
     bar->setCornerWidget(indicatorPanel, Qt::TopRightCorner);
@@ -164,9 +187,7 @@ void MainWindow::setupCore()
     connect(core, &DroneCore::loggerStatusChanged, indicatorPanel, &IndicatorPanel::onLoggerStatus);
     connect(core, &DroneCore::sessionStarted,      indicatorPanel, &IndicatorPanel::onSessionStarted);
     connect(core, &DroneCore::sessionFinished,     indicatorPanel, &IndicatorPanel::onSessionFinished);
-    connect(core, &DroneCore::sessionData, indicatorPanel, [this](const SessionData &d) {
-        indicatorPanel->onSessionOpened(d.info);            // режим просмотра прошлого полёта
-    });
+    // sessionData (просмотр прошлого полёта) — см. блок «полёты (Р2-2)» ниже
 
     // ---- страница «Налаштування»: радиомодем, приборы логгера, окно предполётной проверки ----
     connect(core, &DroneCore::linkStatusChanged,      settingsPage, &SettingsPage::onLinkStatus);
@@ -212,8 +233,10 @@ void MainWindow::setupCore()
     connect(core, &DroneCore::linkStatusChanged,      reconPage, &ReconPage::onLinkStatus);
     connect(core, &DroneCore::loggerStatusChanged,    reconPage, &ReconPage::onLoggerStatus);
     connect(core, &DroneCore::commandFinished,        reconPage, &ReconPage::onCommandFinished);
-    connect(core, &DroneCore::sessionData,     reconPage, [this](const SessionData &d) { reconPage->setReadOnly(d.info.readOnly); });
-    connect(core, &DroneCore::sessionStarted,  reconPage, [this] { reconPage->setReadOnly(false); });
+    connect(core, &DroneCore::sessionStarted,  reconPage, &ReconPage::onSessionStarted);
+    connect(core, &DroneCore::sessionFinished, reconPage, &ReconPage::onSessionFinished);
+    connect(reconPage, &ReconPage::startFlightRequested,  core, &DroneCore::startSession);
+    connect(reconPage, &ReconPage::finishFlightRequested, core, &DroneCore::finishSession);
     connect(reconPage, &ReconPage::sendRequested, core, [this](const CommandRequest &r) {
         reconPage->onCommandSent(core->sendCommand(r));
     });
@@ -287,17 +310,11 @@ void MainWindow::setupCore()
     });
     connect(core, &DroneCore::measurement, mapWidget, &MapWidget::onMeasurement);
     connect(core, &DroneCore::gridUpdated, mapWidget, &MapWidget::onGridUpdated);
-    connect(core, &DroneCore::sessionData, mapWidget, [this](const SessionData &d) {
-        mapWidget->setMeasurements(d.measurements);         // прошлый полёт — все точки сразу
-    });
 
     // ---- шторка тревог: тревоги, «Бачу», показать на карте (тосты показывает сама шторка) ----
     AlarmCenter *alarms = alarmDrawer->center();
     connect(core, &DroneCore::alarm,             alarms, &AlarmCenter::onAlarm);
     connect(core, &DroneCore::alarmAcknowledged, alarms, &AlarmCenter::onAlarmAcknowledged);
-    connect(core, &DroneCore::sessionData, alarms, [alarms](const SessionData &d) {
-        alarms->setAlarms(d.alarms);
-    });
     connect(alarms, &AlarmCenter::acknowledgeRequested, core, &DroneCore::acknowledgeAlarm);
     connect(alarms, &AlarmCenter::showOnMapRequested, mapWidget, [this](double lat, double lon) {
         smappoint pt;
@@ -313,12 +330,69 @@ void MainWindow::setupCore()
         connect(core, &DroneCore::commandFinished, log, &EventLog::onCommandFinished);
         connect(core, &DroneCore::alarm,           log, &EventLog::onAlarm);
         connect(core, &DroneCore::coreError,       log, &EventLog::onCoreError);
-        connect(core, &DroneCore::sessionData,     log, &EventLog::loadSession);
     }
     if (auto *spectrum = instrumentsPage->findChild<SpectrumView *>()) {
         connect(core, &DroneCore::spectrumUpdated,  spectrum, &SpectrumView::setSpectrum);
         connect(core, &DroneCore::spectrumFinished, spectrum, &SpectrumView::setSpectrum);
     }
+
+    // ---- окно команд ID05–ID14 (Р2-4) ----
+    connect(core, &DroneCore::allowedCommandsChanged, commandsWindow, &DroneCommandsWindow::onAllowedCommands);
+    connect(core, &DroneCore::linkStatusChanged,      commandsWindow, &DroneCommandsWindow::onLinkStatus);
+    connect(core, &DroneCore::loggerStatusChanged,    commandsWindow, &DroneCommandsWindow::onLoggerStatus);
+    connect(core, &DroneCore::commandFinished,        commandsWindow, &DroneCommandsWindow::onCommandFinished);
+    connect(commandsWindow, &DroneCommandsWindow::sendRequested, core, [this](const CommandRequest &r) {
+        commandsWindow->onCommandSent(core->sendCommand(r));
+    });
+
+    // ---- импорт SD (Р2-6) ----
+    connect(sdImportWindow, &SdImport::importRequested, core, &DroneCore::importSd);
+    connect(core, &DroneCore::sdProgress, sdImportWindow, &SdImport::onSdProgress);
+    connect(core, &DroneCore::sdImported, sdImportWindow, &SdImport::onSdImported);
+    connect(sdImportWindow, &SdImport::openFlightRequested, this, [this] {
+        // Данные SD добавлены в текущий полёт, а если его нет — в последний
+        if (currentSession.id > 0) {
+            openFlight(currentSession.id);
+        } else {
+            openLatestAfterList = true;
+            core->listSessions();
+        }
+    });
+
+    // ---- полёты (Р2-2): список в «База даних», просмотр прошлого на карте ----
+    connect(databasePage, &DatabasePage::flightsRequested, core, &DroneCore::listSessions);
+    connect(databasePage, &DatabasePage::pointsRequested,  core, &DroneCore::queryArchive);
+    connect(core, &DroneCore::sessionsListed, databasePage, &DatabasePage::onSessionsListed);
+    connect(core, &DroneCore::archiveResult,  databasePage, &DatabasePage::onArchiveResult);
+    connect(databasePage, &DatabasePage::openFlightRequested, this, &MainWindow::openFlight);
+    connect(core, &DroneCore::sessionsListed, this, [this](const QVector<SessionInfo> &list) {
+        if (!openLatestAfterList)
+            return;
+        openLatestAfterList = false;
+        if (!list.isEmpty())
+            openFlight(list.first().id);                    // ядро даёт новые сверху
+        else
+            NotificationManager::showWarning("У базі ще немає польотів");
+    });
+    connect(core, &DroneCore::sessionStarted, this, [this](const SessionInfo &info) {
+        currentSession = info;
+        databasePage->setCurrentSession(info.id);
+    });
+    connect(core, &DroneCore::sessionFinished, this, [this](const SessionInfo &info) {
+        if (info.id == currentSession.id) {
+            currentSession = SessionInfo();
+            databasePage->setCurrentSession(-1);
+        }
+    });
+    connect(core, &DroneCore::sessionData, this, [this](const SessionData &d) {
+        if (restoringLive && d.info.id == currentSession.id) {
+            restoringLive = false;
+            applyLiveRestore(d);
+        } else {
+            applySessionView(d);
+        }
+    });
+    connect(mapWidget, &MapWidget::sessionViewCloseRequested, this, &MainWindow::returnToCurrentFlight);
 
     // ---- ошибки ядра (порт, база) — уведомлением ----
     connect(core, &DroneCore::coreError, this, [](const QString &source, const QString &text) {
@@ -415,4 +489,68 @@ void MainWindow::saveSplitter()
 
     Settings::instance().setValue(KEY_SPLITTER, QStringLiteral("%1,%2").arg(lastSizes.at(0)).arg(lastSizes.at(1)));
     Settings::instance().saveSettings();
+}
+
+// ---------------------------------------------------------------------------
+//  Полёты (Р2-2): просмотр прошлого полёта и возврат к текущему
+// ---------------------------------------------------------------------------
+
+void MainWindow::openFlight(qint64 sessionId)
+{
+    if (sessionId <= 0)
+        return;
+    restoringLive = false;
+    core->openSession(sessionId);       // ответ — sessionData → applySessionView
+}
+
+/**
+    @brief Открыт прошлый полёт: карта, журнал, тревоги, индикатор — его данные;
+           отправка команд недоступна (readOnly). Живые данные при этом пишутся в базу.
+*/
+void MainWindow::applySessionView(const SessionData &d)
+{
+    viewingSession = true;
+    mapWidget->clearArchiveThreadLayerData();        // маркеры поиска по архиву — не мешают полёту
+    mapWidget->showSessionView(d);
+    alarmDrawer->center()->setAlarms(d.alarms);
+    if (auto *log = instrumentsPage->findChild<EventLog *>())
+        log->loadSession(d);
+    indicatorPanel->onSessionOpened(d.info);
+    reconPage->setReadOnly(true);
+    commandsWindow->setReadOnly(true);
+    NotificationManager::showInfo(QString("Перегляд польоту «%1»").arg(d.info.name));
+}
+
+/**
+    @brief «Повернутися до поточного»: карта — живые точки и сетка (MapWidget их копил);
+           журнал и тревоги — из базы текущего полёта (перечитываем его), если он есть.
+*/
+void MainWindow::returnToCurrentFlight()
+{
+    if (!viewingSession)
+        return;
+    viewingSession = false;
+    mapWidget->closeSessionView();
+    reconPage->setReadOnly(false);
+    commandsWindow->setReadOnly(false);
+
+    if (currentSession.id > 0) {
+        restoringLive = true;
+        core->openSession(currentSession.id);     // ответ — sessionData → applyLiveRestore
+        indicatorPanel->onSessionStarted(currentSession);
+    } else {
+        alarmDrawer->center()->setAlarms({});
+        if (auto *log = instrumentsPage->findChild<EventLog *>())
+            log->loadSession(SessionData());
+        SessionInfo none;
+        indicatorPanel->onSessionFinished(none);
+    }
+}
+
+void MainWindow::applyLiveRestore(const SessionData &d)
+{
+    alarmDrawer->center()->setAlarms(d.alarms);
+    if (auto *log = instrumentsPage->findChild<EventLog *>())
+        log->loadSession(d);
+    indicatorPanel->onSessionStarted(currentSession);
 }

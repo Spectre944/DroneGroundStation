@@ -25,8 +25,11 @@ SettingsPage::SettingsPage(QWidget *parent)
 
     setupInterfaceFields();
     setupDeviceFields();
+    setupLinkFields();
     setupReconFields();
+    setupCorrectionFields();
     setupGridFields();
+    setupExportFields();
     setupProgramFields();
 
     connections();
@@ -425,6 +428,111 @@ void SettingsPage::setupGridFields()
 }
 
 // ---------------------------------------------------------------------------
+//  Р2-5: остальные настройки ядра
+// ---------------------------------------------------------------------------
+
+void SettingsPage::setupLinkFields()
+{
+    QVBoxLayout *l = addSection("Зв'язок і область");
+
+    m_linkTimeout = new SettingsFieldSpinBox(this);
+    m_linkTimeout->setTextData("Зв'язок втрачено через",
+                               "Немає пакетів довше — індикатор «Зв'язок втрачено» і подія в журналі");
+    m_linkTimeout->setTextUnits("с");
+    m_linkTimeout->setDataRange(10, 3600);
+
+    m_maxArea = new SettingsFieldDoubleSpinBox(this);
+    m_maxArea->setTextData("Найбільший розмір області",
+                           "Область більша за це — помилка перевірки «завелика область»");
+    m_maxArea->setTextUnits("км");
+    m_maxArea->setDataRange(0.1, 1000.0);
+    m_maxArea->setDecimals(1);
+
+    l->addWidget(m_linkTimeout);
+    l->addWidget(createHorizontalLine());
+    l->addWidget(m_maxArea);
+}
+
+void SettingsPage::setupCorrectionFields()
+{
+    QVBoxLayout *l = addSection("Перерахунок ПАЕД на 1 м");
+
+    m_corrOn = new SettingsFieldCombobox(this);
+    m_corrOn->setTextData("Перерахунок на 1 м",
+                          "Значення на висоті польоту перераховується до висоти 1 м над землею");
+    m_corrOn->setComboboxData({"Вимкнено", "Увімкнено"});
+
+    m_corrMu = new SettingsFieldDoubleSpinBox(this);
+    m_corrMu->setTextData("Коефіцієнт ослаблення μ",
+                          "ПАЕД(1 м) = ПАЕД(h) · e^(μ·(h − 1)). Значення — відкрите питання, уточнити");
+    m_corrMu->setTextUnits("1/м");
+    m_corrMu->setDecimals(4);
+    m_corrMu->setDataRange(0.0, 1.0);
+    m_corrMu->setSpecialValueText("0 — без змін");
+
+    m_corrMin = new SettingsFieldSpinBox(this);
+    m_corrMin->setTextData("Найменша висота перерахунку", "Нижче — вимірювання недостовірне; 0 — без обмеження");
+    m_corrMin->setTextUnits("м");
+    m_corrMin->setDataRange(0, 1000);
+    m_corrMin->setSpecialValueText("без обмеження");
+
+    m_corrMax = new SettingsFieldSpinBox(this);
+    m_corrMax->setTextData("Найбільша висота перерахунку", "Вище — вимірювання недостовірне; 0 — без обмеження");
+    m_corrMax->setTextUnits("м");
+    m_corrMax->setDataRange(0, 1000);
+    m_corrMax->setSpecialValueText("без обмеження");
+
+    const QList<QWidget *> fields = {m_corrOn, m_corrMu, m_corrMin, m_corrMax};
+    for (int i = 0; i < fields.size(); ++i) {
+        if (i > 0)
+            l->addWidget(createHorizontalLine());
+        l->addWidget(fields[i]);
+    }
+}
+
+void SettingsPage::setupExportFields()
+{
+    QVBoxLayout *l = addSection("Експорт CSV");
+
+    m_csvSep = new SettingsFieldCombobox(this);
+    m_csvSep->setTextData("Десятковий роздільник",
+                          "«,» — для Excel з українськими налаштуваннями, «.» — для інших програм");
+    m_csvSep->setComboboxData({"Кома ( , )", "Крапка ( . )"});
+
+    m_csvLang = new SettingsFieldCombobox(this);
+    m_csvLang->setTextData("Мова заголовків", "Назви стовпців у файлах CSV");
+    m_csvLang->setComboboxData({"Українська", "English"});
+
+    l->addWidget(m_csvSep);
+    l->addWidget(createHorizontalLine());
+    l->addWidget(m_csvLang);
+}
+
+void SettingsPage::updateDbFieldText()
+{
+    const QString text = m_dbPath.isEmpty()
+        ? QStringLiteral("flights.db поруч із програмою")
+        : QDir::toNativeSeparators(m_dbPath);
+    m_dbField->setTextData("База польотів", text + QStringLiteral(" · діє після перезапуску"));
+    m_dbField->setTooltip(text);
+}
+
+void SettingsPage::selectDbFile()
+{
+    const QString startDir = m_dbPath.isEmpty() ? QCoreApplication::applicationDirPath()
+                                                : QFileInfo(m_dbPath).absolutePath();
+    // Файл может ещё не существовать — ядро создаст базу при открытии
+    const QString path = QFileDialog::getSaveFileName(this, "Файл бази польотів", startDir + "/flights.db",
+                                                      "База SQLite (*.db *.sqlite);;Всі файли (*)",
+                                                      nullptr, QFileDialog::DontConfirmOverwrite);
+    if (path.isEmpty())
+        return;
+    m_dbPath = path;
+    updateDbFieldText();
+    NotificationManager::showInfo("Нова база польотів почне використовуватися після «Зберегти» і перезапуску програми");
+}
+
+// ---------------------------------------------------------------------------
 //  Програма
 // ---------------------------------------------------------------------------
 
@@ -432,6 +540,13 @@ void SettingsPage::setupProgramFields()
 {
     ui->mapSettingsField->setButtonText("Відкрити");
     updateMapFieldText();
+
+    // База польотів (Р2-5, CoreSettings::dbPath) — под путём к картам
+    m_dbField = new SettingsFieldButton(ui->subFrameProg);
+    m_dbField->setButtonText("Вибрати");
+    ui->subFrameProg->layout()->addWidget(createHorizontalLine());
+    ui->subFrameProg->layout()->addWidget(m_dbField);
+    connect(m_dbField, &SettingsFieldButton::buttonClicked, this, &SettingsPage::selectDbFile);
 }
 
 void SettingsPage::updateMapFieldText()
@@ -523,6 +638,15 @@ CoreSettings SettingsPage::coreSettings() const
     c.gridCellM   = s.getValue(KEY_GRID_CELL, c.gridCellM).toDouble();
     c.gridRadiusM = s.getValue(KEY_GRID_RADIUS, DEFAULT_GRID_RADIUS_M).toDouble();
     c.gridPower   = s.getValue(KEY_GRID_POWER, c.gridPower).toDouble();
+    c.correctionOn   = s.getValue(KEY_CORR_ON, c.correctionOn).toBool();
+    c.correctionCoeffs = { s.getValue(KEY_CORR_MU, 0.0).toDouble() };
+    c.correctionMinM = s.getValue(KEY_CORR_MIN, c.correctionMinM).toDouble();
+    c.correctionMaxM = s.getValue(KEY_CORR_MAX, c.correctionMaxM).toDouble();
+    const QString sep = s.getValue(KEY_CSV_SEP, QString(c.csvDecimalSep)).toString();
+    c.csvDecimalSep  = sep == QLatin1String(".") ? QLatin1Char('.') : QLatin1Char(',');
+    const QString lang = s.getValue(KEY_CSV_LANG, c.language).toString();
+    c.language       = lang == QLatin1String("en") ? QStringLiteral("en") : QStringLiteral("uk");
+    c.dbPath         = s.getValue(KEY_DB_PATH, c.dbPath).toString();
     return c;
 }
 
@@ -554,6 +678,15 @@ void SettingsPage::saveSettings()
     settings.setValue(KEY_GRID_CELL,   m_gridCell->getValue().toInt());
     settings.setValue(KEY_GRID_RADIUS, m_gridRadius->getValue().toInt());
     settings.setValue(KEY_GRID_POWER,  m_gridPower->getValue().toDouble());
+    settings.setValue(KEY_LINK_TIMEOUT, m_linkTimeout->getValue().toInt());
+    settings.setValue(KEY_MAX_AREA,     m_maxArea->getValue().toDouble());
+    settings.setValue(KEY_CORR_ON,      m_corrOn->currentIndex() == 1);
+    settings.setValue(KEY_CORR_MU,      m_corrMu->getValue().toDouble());
+    settings.setValue(KEY_CORR_MIN,     m_corrMin->getValue().toInt());
+    settings.setValue(KEY_CORR_MAX,     m_corrMax->getValue().toInt());
+    settings.setValue(KEY_CSV_SEP,      m_csvSep->currentIndex() == 1 ? "." : ",");
+    settings.setValue(KEY_CSV_LANG,     m_csvLang->currentIndex() == 1 ? "en" : "uk");
+    settings.setValue(KEY_DB_PATH,      m_dbPath);
 
     // Типовые параметры ID04
     ReconParams p;
@@ -589,6 +722,16 @@ void SettingsPage::updateSettings()
     m_gridCell->setValue(int(c.gridCellM));
     m_gridRadius->setValue(int(c.gridRadiusM));
     m_gridPower->setValue(c.gridPower);
+    m_linkTimeout->setValue(c.linkTimeoutS);
+    m_maxArea->setValue(c.maxAreaKm);
+    m_corrOn->setCurrentIndex(c.correctionOn ? 1 : 0);
+    m_corrMu->setValue(c.correctionCoeffs.isEmpty() ? 0.0 : c.correctionCoeffs.first());
+    m_corrMin->setValue(int(c.correctionMinM));
+    m_corrMax->setValue(int(c.correctionMaxM));
+    m_csvSep->setCurrentIndex(c.csvDecimalSep == QLatin1Char('.') ? 1 : 0);
+    m_csvLang->setCurrentIndex(c.language == QLatin1String("en") ? 1 : 0);
+    m_dbPath = c.dbPath;
+    updateDbFieldText();
 
     const ReconParams p = ReconParams::load();
     m_reconMode->setCurrentIndex(int(p.reconMode));

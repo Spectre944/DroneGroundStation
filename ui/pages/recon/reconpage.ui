@@ -55,6 +55,72 @@
         </widget>
        </item>
        <item>
+        <widget class="QGroupBox" name="groupFlight">
+         <property name="title">
+          <string>Політ</string>
+         </property>
+         <layout class="QFormLayout" name="flightLayout">
+          <property name="rowWrapPolicy">
+           <enum>QFormLayout::RowWrapPolicy::WrapLongRows</enum>
+          </property>
+          <item row="0" column="0" colspan="2">
+           <widget class="QLabel" name="labelFlightState">
+            <property name="text">
+             <string>Політ почнеться разом із відправкою області на дрон</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="labelFlightName">
+            <property name="text">
+             <string>Назва</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="lineEditFlightName">
+            <property name="placeholderText">
+             <string>місце, напр. «Ділянка 3»</string>
+            </property>
+            <property name="maxLength">
+             <number>80</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="labelFlightTask">
+            <property name="text">
+             <string>Завдання</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="lineEditFlightTask">
+            <property name="placeholderText">
+             <string>необов'язково</string>
+            </property>
+            <property name="maxLength">
+             <number>120</number>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QPushButton" name="pushButtonFinishFlight">
+            <property name="text">
+             <string>Завершити політ</string>
+            </property>
+            <property name="toolTip">
+             <string>Закрити запис польоту в базі. Нові дані підуть у наступний політ</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <widget class="QGroupBox" name="groupArea">
          <property name="title">
           <string>Область розвідки</string>

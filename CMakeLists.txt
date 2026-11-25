@@ -21,6 +21,7 @@ qt_add_executable(DroneGroundStation
     map/mapcore.cpp map/mapcore.h map/mapwidget.cpp map/mapwidget.h map/mapwidget.ui
     map/drawinglayer.cpp map/drawinglayer.h map/maplayer.h
     map/doselayers.cpp map/doselayers.h map/dosetestflight.cpp map/dosetestflight.h
+    map/sessionviewlayer.cpp map/sessionviewlayer.h
     backend/settings/settings.h backend/settings/settings.cpp
     ui/windows/overlay/overlaylayer.cpp ui/windows/overlay/overlaylayer.h ui/windows/overlay/overlaywidget.cpp ui/windows/overlay/overlaywidget.h
     ui/windows/overlay/overlaycontainer.h ui/windows/overlay/overlaycontainer.cpp
@@ -39,9 +40,11 @@ qt_add_executable(DroneGroundStation
     ui/modules/settingsfield/settingsdeviceitem.cpp ui/modules/settingsfield/settingsdeviceitem.h ui/modules/settingsfield/settingsdeviceitem.ui ui/modules/settingsfield/settingsfield.cpp ui/modules/settingsfield/settingsfield.h ui/modules/settingsfield/settingsfield.ui
     ui/modules/settingsfield/devicedetailswindow.cpp ui/modules/settingsfield/devicedetailswindow.h
     ui/modules/coreTexts/coretexts.cpp ui/modules/coreTexts/coretexts.h
+    ui/windows/dronecommands/dronecommandswindow.cpp ui/windows/dronecommands/dronecommandswindow.h
+    ui/windows/sdimport/sdimport.cpp ui/windows/sdimport/sdimport.h
     ui/components/combobox/combobox.cpp ui/components/combobox/combobox.h ui/components/spinbox/spinbox.cpp ui/components/spinbox/spinbox.h
     ui/modules/searchBar/searchbar.cpp ui/modules/searchBar/searchbar.h ui/modules/searchBar/searchbar.ui
-    ui/components/button/button.cpp ui/components/button/button.h ui/components/menu/menu.cpp ui/components/menu/menu.h
+    ui/components/button/button.cpp ui/components/button/button.h ui/components/button/toggleswitch.cpp ui/components/button/toggleswitch.h ui/components/menu/menu.cpp ui/components/menu/menu.h
     map/mappicker.cpp map/mappicker.h
     backend/classes/core_types.cpp backend/classes/core_types.h
     backend/classes/drone_core.cpp backend/classes/drone_core.h
