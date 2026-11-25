@@ -59,6 +59,7 @@ ReconPage::ReconPage(QWidget *parent) :
     connections();
     updateAreaStatus();
     updateSendState();
+    updateFlightUi();
 }
 
 ReconPage::~ReconPage()
@@ -72,6 +73,13 @@ void ReconPage::connections()
     connect(ui->pushButtonSimplify, &QPushButton::clicked, this, &ReconPage::simplifyArea);
     connect(ui->pushButtonSend, &QPushButton::clicked, this, &ReconPage::send);
     connect(ui->pushButtonResetDefaults, &QPushButton::clicked, this, [this] { applyParams(m_defaults); });
+    connect(ui->pushButtonFinishFlight, &QPushButton::clicked, this, [this] {
+        const QString text = m_logger.mode == LoggerMode::Work
+            ? tr("Розвідка ще триває. Якщо завершити політ зараз, наступні дані підуть в автоматичний запис.\n\nЗавершити політ «%1»?")
+            : tr("Нові дані підуть у наступний політ.\n\nЗавершити політ «%1»?");
+        if (QMessageBox::question(this, tr("Завершити політ"), text.arg(m_session.name)) == QMessageBox::Yes)
+            emit finishFlightRequested();
+    });
 
     // Любая правка поля — подсказка «змінено відносно типових»
     connect(ui->comboBoxReconMode, &QComboBox::currentIndexChanged, this, &ReconPage::updateDefaultsHint);
@@ -271,6 +279,7 @@ void ReconPage::setReadOnly(bool readOnly)
 {
     m_readOnly = readOnly;
     updateSendState();
+    updateFlightUi();
 }
 
 void ReconPage::updateSendState()
@@ -340,6 +349,12 @@ void ReconPage::send()
     m_sending = true;
     m_early.clear();
     updateSendState();
+
+    // Полёт ещё не начат оператором — начать его с введённым именем перед ID04
+    if (!(m_hasSession && m_ownSession)) {
+        m_requestedName = flightName();
+        emit startFlightRequested(m_requestedName);
+    }
     emit sendRequested(r);      // MainWindow: seq = core->sendCommand(r); onCommandSent(seq)
 }
 
@@ -383,4 +398,66 @@ void ReconPage::showOutcome(const CommandOutcome &outcome)
     else
         NotificationManager::showError(text, tr("ID04 не виконано"));
     updateSendState();
+}
+
+// ------------------------------------------------------------------
+//  Полёт (Р2-2)
+// ------------------------------------------------------------------
+
+QString ReconPage::flightName() const
+{
+    const QString name = ui->lineEditFlightName->text().simplified();
+    const QString task = ui->lineEditFlightTask->text().simplified();
+    QString out = name.isEmpty() ? tr("Політ %1").arg(QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm"))
+                                 : name;
+    if (!task.isEmpty())
+        out += QStringLiteral(" · ") + task;
+    return out;
+}
+
+void ReconPage::onSessionStarted(const SessionInfo &info)
+{
+    m_session = info;
+    m_hasSession = true;
+    // Начат нами — имя совпадает с запрошенным; иначе ядро начало запись само (по первым данным)
+    m_ownSession = !m_requestedName.isEmpty() && info.name == m_requestedName;
+    if (m_ownSession) {
+        ui->lineEditFlightName->clear();
+        ui->lineEditFlightTask->clear();
+    }
+    updateFlightUi();
+}
+
+void ReconPage::onSessionFinished(const SessionInfo &info)
+{
+    if (m_hasSession && info.id != m_session.id)
+        return;
+    m_hasSession = false;
+    m_ownSession = false;
+    m_requestedName.clear();
+    updateFlightUi();
+}
+
+void ReconPage::updateFlightUi()
+{
+    const bool own = m_hasSession && m_ownSession;
+    // Полёт оператора идёт — поля имени не нужны: новые ID04 пойдут в этот же полёт
+    ui->labelFlightName->setVisible(!own);
+    ui->lineEditFlightName->setVisible(!own);
+    ui->labelFlightTask->setVisible(!own);
+    ui->lineEditFlightTask->setVisible(!own);
+    ui->pushButtonFinishFlight->setVisible(m_hasSession);
+    ui->pushButtonFinishFlight->setEnabled(!m_readOnly);
+
+    const QString since = m_session.startTime.isValid()
+        ? m_session.startTime.toLocalTime().toString("HH:mm") : QString();
+    if (own)
+        ui->labelFlightState->setText(tr("Поточний політ: <b>%1</b> · з %2. Нові області підуть у цей політ.")
+                                          .arg(m_session.name.toHtmlEscaped(), since));
+    else if (m_hasSession)
+        ui->labelFlightState->setText(tr("Зараз дані пишуться в автоматичний запис «%1». "
+                                         "Новий політ почнеться разом із відправкою області.")
+                                          .arg(m_session.name.toHtmlEscaped()));
+    else
+        ui->labelFlightState->setText(tr("Політ почнеться разом із відправкою області на дрон"));
 }

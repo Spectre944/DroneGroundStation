@@ -40,6 +40,17 @@ signals:
     void mapQueryRequested(const QString&);
     void querySearchAreaFormed(const QString&);
 
+    /**
+        @brief Поиск через ядро (страница «База даних»).
+        @param points   искать точки (DroneCore::queryArchive)
+        @param flights  показать полёты (DroneCore::listSessions)
+        @param fromSec, toSec  период, секунды Unix; 0 — без ограничения
+        @param area     область «WGS84:ш,д/…» (круг радиуса или заданная); пусто — вся карта
+        @param sort     0 — нові спочатку, 1 — старі спочатку, 2 — за ПАЕД
+    */
+    void archiveSearchRequested(bool points, bool flights, qint64 fromSec, qint64 toSec,
+                                const QString &area, int sort);
+
 public slots:
     // void onTypeActionTriggered(QAction* action);
     // void onTimeActionTriggered(QAction* action);
@@ -76,6 +87,7 @@ private:
     QAction *allTime, *lastHour, *lastDay, *lastWeek, *lastMonth, *lastYear, *lastOptional;
     QAction *areaAll, *area1km, *area10km, *area50km, *area100km, *area500km, *areaOptional;
     QAction *pointFlag = nullptr;
+    QAction *flightFlag = nullptr;      ///< «Польоти» — список полётов (Р2-2)
     QAction *layerOverlaping, *displayOnMap, *displayInNewTable;
     QAction *sortByTimeNewFirst, *sortByTimeOldFirst, *sortByDistance, *sortByRadiation;
 };

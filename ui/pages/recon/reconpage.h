@@ -56,9 +56,21 @@ public slots:
     void onCommandFinished(const CommandOutcome &outcome);
     void setReadOnly(bool readOnly);                    ///< открыт прошлый полёт — отправка недоступна
 
+    // --- полёт (Р2-2) ---
+    void onSessionStarted(const SessionInfo &info);
+    void onSessionFinished(const SessionInfo &info);
+
 signals:
     void areaEdited(const QVector<smappoint> &points);  ///< координаты из поля → MapWidget::setReconArea
     void sendRequested(const CommandRequest &request);  ///< ID04 → DroneCore::sendCommand (seq → onCommandSent)
+
+    /**
+        @brief Начать полёт (DroneCore::startSession) — перед первой ID04.
+        @note  Шлётся прямо перед sendRequested: ядро выполняет вызовы по порядку,
+               поэтому область и данные разведки попадают уже в новый полёт.
+    */
+    void startFlightRequested(const QString &name);
+    void finishFlightRequested();                       ///< DroneCore::finishSession
 
 private:
     void connections();
@@ -92,6 +104,14 @@ private:
     QString       m_resultHtml;         ///< итог последней ID04 — под кнопкой
     void showOutcome(const CommandOutcome &outcome);
     bool          m_settingText = false;///< поле заполняется с карты — не отправлять обратно
+
+    // Полёт: текущая сессия базы и начата ли она оператором (а не ядром автоматически)
+    SessionInfo   m_session;
+    bool          m_hasSession = false;
+    bool          m_ownSession = false;
+    QString       m_requestedName;      ///< имя, с которым просили startSession
+    void updateFlightUi();
+    QString flightName() const;         ///< «Назва · Завдання» или дата и время
 };
 
 #endif // RECONPAGE_H
