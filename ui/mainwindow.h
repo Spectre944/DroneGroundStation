@@ -22,6 +22,7 @@ class AlarmDrawer;
 class DroneCore;
 class DroneCommandsWindow;
 class SdImport;
+class CsvExportWindow;
 class LeftMenu;
 
 QT_BEGIN_NAMESPACE
@@ -93,6 +94,16 @@ private:
     void updateFlightActions();                 ///< доступность пунктов полёта
     DroneCommandsWindow  *commandsWindow = nullptr;
     SdImport       *sdImportWindow = nullptr;
+    /**
+        @brief Экспорт CSV (Р2-7): окно (выбор полёта, частей, папки) и быстрый экспорт из ПКМ
+               «База даних» (все части в <папка программы>/export).
+        @note  DroneCore::exportFinished без номера полёта — ответ отдаём тому, кто спросил последним.
+    */
+    CsvExportWindow *csvExportWindow = nullptr;
+    QAction        *actCsvExport = nullptr;     ///< «Бази даних → Експорт у CSV…»
+    enum class ExportOwner { None, Quick, Window };
+    ExportOwner     exportOwner = ExportOwner::None;
+    void quickExport(qint64 sessionId);
 
     /**
         @brief Полёты (Р2-2): текущий полёт и просмотр прошлого.

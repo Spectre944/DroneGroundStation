@@ -341,6 +341,20 @@ WHERE 1=1
 
 }
 
+/**
+    @brief Область с карты («Встановити область пошуку» в меню полигона) → фильтр «В заданій області».
+    @note  Кнопка «Площа пошуку» переключается на «В заданій області...», область сразу видна
+           на карте (querySearchAreaFormed); поиск — кнопкой «Пошук», как обычно.
+*/
+void SearchBar::setSearchArea(const QString &area)
+{
+    radiusMeters = -1;
+    searchInArea = true;
+    areaCoordinates = area;
+    ui->pushButtonSquare->actionSelected(areaOptional);   // текст кнопки — «В заданій області...»
+    emit querySearchAreaFormed(area);
+}
+
 void SearchBar::searchFlights()
 {
     pointFlag->setChecked(false);

@@ -433,6 +433,7 @@ public:
 signals:
     void selectionChanged(int id);
     void reconPrepareRequested();     ///< «Підготувати для розвідки» — открыть страницу «Розвідка»
+    void searchAreaRequested(const QVector<smappoint> &points);  ///< «Встановити область пошуку»
 
 private:
     struct InfoBox {
@@ -700,6 +701,7 @@ signals:
     void archiveThreatClicked(int index);
     void measurementClicked(qint64 id, int index);   // клик по точке измерения
     void sessionViewCloseRequested();                // кнопка «Повернутися до поточного» на плашке просмотра
+    void searchAreaSet(const QString &area);         // полигон → фильтр «В заданій області» («WGS84:ш,д/…»)
     void drawingCanceled();
 
     // Разведка назначается через контекстное меню фигуры (вместо ReconAreaLayer)

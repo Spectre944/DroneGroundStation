@@ -58,6 +58,7 @@ public slots:
     void createQuery();
     void onCenterMarkerChanged(smappoint centerPosition);
     void searchFlights();               ///< «Тип даних» = только «Польоти», затем createQuery()
+    void setSearchArea(const QString &area);  ///< полигон с карты → «В заданій області» («WGS84:ш,д/…»)
 
 
 private:

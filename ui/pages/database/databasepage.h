@@ -33,10 +33,15 @@ public:
     explicit DatabasePage(QWidget *parent = nullptr);
     ~DatabasePage();
 
+    /// Полёт в формате таблицы: {id, «Параметри», «Дані польоту»} — и для окна экспорта CSV
+    static QVector<QVariant> flightRow(const SessionInfo &s, bool current);
+    static QStringList flightHeaders();
+
 public slots:
     void onCenterMarkerChanged(smappoint centerPosition);
     void onArchiveThreatClicked(int index);          ///< клик по точке на карте — выделить строку
     void onArchiveDBOpened(QString);
+    void setSearchArea(const QString &area);         ///< полигон с карты → фильтр «В заданій області»
     void showFlights();                              ///< «Бази даних → Відкрити політ…»: фильтр «Польоти» и поиск
 
     // --- от DroneCore ---
@@ -53,6 +58,8 @@ signals:
     void flightsRequested();                          ///< → DroneCore::listSessions
     void pointsRequested(const SessionFilter &filter);///< → DroneCore::queryArchive
     void openFlightRequested(qint64 sessionId);       ///< просмотр полёта на карте
+    void quickExportRequested(qint64 sessionId);      ///< ПКМ → «Експортувати в CSV» (папка export)
+    void exportWindowRequested(qint64 sessionId);     ///< ПКМ → «Експорт у CSV…» (окно, полёт выбран)
 
 private:
     Ui::DatabasePage *ui;
@@ -66,6 +73,7 @@ private:
     /// Строка таблицы → (раздел, номер в разделе); раздел: 0 — нет, 1 — полёты, 2 — точки
     QPair<int, int> locate(int row) const;
     static QVector<GeoPoint> parseArea(const QString &area);
+    static bool insideArea(const QVector<GeoPoint> &area, double lat, double lon);
 
     StickyTableModel *model = nullptr;
     StickyTableView  *view = nullptr;

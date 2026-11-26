@@ -42,6 +42,7 @@ qt_add_executable(DroneGroundStation
     ui/modules/coreTexts/coretexts.cpp ui/modules/coreTexts/coretexts.h
     ui/windows/dronecommands/dronecommandswindow.cpp ui/windows/dronecommands/dronecommandswindow.h
     ui/windows/sdimport/sdimport.cpp ui/windows/sdimport/sdimport.h
+    ui/windows/csvexport/csvexport.cpp ui/windows/csvexport/csvexport.h
     ui/components/combobox/combobox.cpp ui/components/combobox/combobox.h ui/components/spinbox/spinbox.cpp ui/components/spinbox/spinbox.h
     ui/modules/searchBar/searchbar.cpp ui/modules/searchBar/searchbar.h ui/modules/searchBar/searchbar.ui
     ui/components/button/button.cpp ui/components/button/button.h ui/components/button/toggleswitch.cpp ui/components/button/toggleswitch.h ui/components/menu/menu.cpp ui/components/menu/menu.h
@@ -52,6 +53,8 @@ qt_add_executable(DroneGroundStation
     ui/modules/indicatorPanel/indicatorpanel.cpp ui/modules/indicatorPanel/indicatorpanel.h
     ui/modules/eventLog/eventlog.cpp ui/modules/eventLog/eventlog.h
     ui/modules/spectrumView/spectrumplot.cpp ui/modules/spectrumView/spectrumplot.h
+    ui/modules/timeSeries/timeseriesplot.cpp ui/modules/timeSeries/timeseriesplot.h
+    ui/modules/timeSeries/timeseriesview.cpp ui/modules/timeSeries/timeseriesview.h
     ui/modules/spectrumView/spectrumview.cpp ui/modules/spectrumView/spectrumview.h
     ui/modules/preflight/preflightchecklist.cpp ui/modules/preflight/preflightchecklist.h
     ui/modules/alarmCenter/alarmcenter.cpp ui/modules/alarmCenter/alarmcenter.h
