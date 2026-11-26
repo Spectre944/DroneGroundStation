@@ -123,10 +123,19 @@ CsvExportWindow::CsvExportWindow(QWidget *parent)
         updateState();
     });
     connect(m_folder, &QLineEdit::textChanged, this, &CsvExportWindow::updateState);
+    // Выбор папки — окно Qt своего размера, с изменяемым размером: системное окно Windows
+    // открывалось на весь экран и не уменьшалось
     connect(m_browse, &QPushButton::clicked, this, [this] {
-        const QString dir = QFileDialog::getExistingDirectory(this, tr("Папка для CSV"), m_folder->text());
-        if (!dir.isEmpty())
-            m_folder->setText(QDir::toNativeSeparators(dir));
+        QFileDialog dlg(this, tr("Папка для CSV"), m_folder->text());
+        dlg.setFileMode(QFileDialog::Directory);
+        dlg.setOption(QFileDialog::ShowDirsOnly, true);
+        dlg.setOption(QFileDialog::DontUseNativeDialog, true);
+        dlg.setWindowState(Qt::WindowNoState);
+        dlg.setSizeGripEnabled(true);
+        dlg.setMinimumSize(480, 320);
+        dlg.resize(720, 460);
+        if (dlg.exec() == QDialog::Accepted && !dlg.selectedFiles().isEmpty())
+            m_folder->setText(QDir::toNativeSeparators(dlg.selectedFiles().first()));
     });
     connect(m_openFolder, &QPushButton::clicked, this, [this] {
         QDesktopServices::openUrl(QUrl::fromLocalFile(m_target));
