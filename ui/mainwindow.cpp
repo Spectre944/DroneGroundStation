@@ -122,6 +122,11 @@ void MainWindow::setupPages()
     connect(databasePage, &DatabasePage::clearArchiveMapDataRequested, mapWidget, &MapWidget::clearArchiveThreadLayerData);
     connect(databasePage, &DatabasePage::archiveTableThreatClicked,    mapWidget, &MapWidget::selectArchivePoint);
     connect(databasePage, &DatabasePage::querySearchAreaFormed,        mapWidget, &MapWidget::activeSearchAreaRecived);
+    // Полигон с карты → фильтр «В заданій області» (без окна ввода координат)
+    connect(mapWidget, &MapWidget::searchAreaSet, this, [this](const QString &area) {
+        databasePage->setSearchArea(area);
+        NotificationManager::showInfo("Область пошуку встановлено — натисніть «Пошук» на сторінці «База даних»");
+    });
     connect(mapWidget, &MapWidget::archiveThreatClicked,  databasePage, &DatabasePage::onArchiveThreatClicked);
     connect(mapWidget, &MapWidget::centerPositionChanged, databasePage, &DatabasePage::onCenterMarkerChanged);
 }
@@ -581,7 +586,6 @@ void MainWindow::openFlight(qint64 sessionId)
 void MainWindow::applySessionView(const SessionData &d)
 {
     viewingSession = true;
-    mapWidget->clearArchiveThreadLayerData();        // маркеры поиска по архиву — не мешают полёту
     mapWidget->showSessionView(d);
     alarmDrawer->center()->setAlarms(d.alarms);
     if (auto *log = instrumentsPage->findChild<EventLog *>())

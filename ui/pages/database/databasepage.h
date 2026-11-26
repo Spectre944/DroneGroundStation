@@ -37,6 +37,7 @@ public slots:
     void onCenterMarkerChanged(smappoint centerPosition);
     void onArchiveThreatClicked(int index);          ///< клик по точке на карте — выделить строку
     void onArchiveDBOpened(QString);
+    void setSearchArea(const QString &area);         ///< полигон с карты → фильтр «В заданій області»
     void showFlights();                              ///< «Бази даних → Відкрити політ…»: фильтр «Польоти» и поиск
 
     // --- от DroneCore ---
@@ -66,6 +67,7 @@ private:
     /// Строка таблицы → (раздел, номер в разделе); раздел: 0 — нет, 1 — полёты, 2 — точки
     QPair<int, int> locate(int row) const;
     static QVector<GeoPoint> parseArea(const QString &area);
+    static bool insideArea(const QVector<GeoPoint> &area, double lat, double lon);
 
     StickyTableModel *model = nullptr;
     StickyTableView  *view = nullptr;

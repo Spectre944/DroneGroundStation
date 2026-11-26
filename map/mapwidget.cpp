@@ -459,6 +459,15 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
     if (tooMany)
         menu.addAction(QString("Спростити до %1 точок").arg(maxV), this, [this, id] { simplify(id); });
 
+    // Полигон → фильтр «В заданій області» страницы «База даних» (без окна ввода координат)
+    if (poly) {
+        menu.addSeparator();
+        menu.addAction("Встановити область пошуку", this, [this, id] {
+            if (const GeometryItem *g = m_store->find(id))
+                emit searchAreaRequested(g->points);
+        });
+    }
+
     // Область разведки из меню не удаляется — сначала «Зняти призначення»
     if (it->role != GeometryRole::Recon) {
         menu.addSeparator();
@@ -1253,6 +1262,14 @@ void MapWidget::setupConnections()
 
     // --- точки измерений ---
     connect(measurementLayer, &MeasurementLayer::measurementSelected, this, &MapWidget::measurementClicked);
+    // «Встановити область пошуку»: вершины → строка «WGS84:ш,д/…» (формат окна «В заданій області»)
+    connect(geometryLayer, &GeometryLayer::searchAreaRequested, this, [this](const QVector<smappoint> &pts) {
+        QString area;
+        for (const smappoint &pt : pts)
+            area += QString("WGS84:%1,%2/").arg(pt.latt, 0, 'f', 7).arg(pt.longt, 0, 'f', 7);
+        emit searchAreaSet(area);
+    });
+
     connect(archivePointsLayer, &MeasurementLayer::measurementSelected, this,
             [this](qint64, int index) { emit archiveThreatClicked(index); });
     connect(archivePointsLayer, &MeasurementLayer::centerRequested, this, [this](double lat, double lon) {

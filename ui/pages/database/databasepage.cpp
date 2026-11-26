@@ -124,6 +124,11 @@ void DatabasePage::connections()
     @brief «Бази даних → Відкрити політ…»: в фильтре «Тип даних» — только «Польоти», сразу поиск.
     @note  Остальные условия (время, область, сортировка) — те, что выбраны в строке поиска.
 */
+void DatabasePage::setSearchArea(const QString &area)
+{
+    ui->widgetSerach->setSearchArea(area);
+}
+
 void DatabasePage::showFlights()
 {
     ui->widgetSerach->searchFlights();
@@ -183,7 +188,13 @@ void DatabasePage::onArchiveResult(const ArchiveResult &result)
 {
     if (!m_showPoints)
         return;
-    m_points = result.points;
+    // Область поиска — по точному многоугольнику (чётно-нечётное правило), а не по рамке:
+    // ядро может отдать лишнее (заглушка ищет по рамке, ядро — только по выпуклой области)
+    m_points.clear();
+    m_points.reserve(result.points.size());
+    for (const ArchivePoint &p : result.points)
+        if (insideArea(result.filter.area, p.lat, p.lon))
+            m_points << p;
     std::stable_sort(m_points.begin(), m_points.end(), [this](const ArchivePoint &a, const ArchivePoint &b) {
         if (m_sort == 2) return a.paed > b.paed;
         if (m_sort == 1) return a.time < b.time;
@@ -310,6 +321,28 @@ void DatabasePage::showContextMenu(const QPoint &pos)
     }
     if (!menu.isEmpty())
         menu.exec(view->viewport()->mapToGlobal(pos));
+}
+
+/**
+    @brief Точка внутри многоугольника — чётно-нечётное правило (луч вдоль долготы).
+    @note  Подходит и для невыпуклых областей. Меньше 3 вершин — ограничения нет.
+*/
+bool DatabasePage::insideArea(const QVector<GeoPoint> &area, double lat, double lon)
+{
+    const int n = area.size();
+    if (n < 3)
+        return true;
+    bool inside = false;
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+        const GeoPoint &a = area[i];
+        const GeoPoint &b = area[j];
+        if ((a.lat > lat) != (b.lat > lat)) {
+            const double x = a.lon + (lat - a.lat) * (b.lon - a.lon) / (b.lat - a.lat);
+            if (lon < x)
+                inside = !inside;
+        }
+    }
+    return inside;
 }
 
 QVector<GeoPoint> DatabasePage::parseArea(const QString &area)
