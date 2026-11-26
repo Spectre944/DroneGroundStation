@@ -1,5 +1,7 @@
 #include "timeseriesplot.h"
 
+#include "ui/modules/indicatorPanel/indicatoritem.h"   // StatusColor
+
 #include <QDateTime>
 #include <QLocale>
 #include <QMouseEvent>
@@ -18,6 +20,8 @@ constexpr int kRight  = 14;
 constexpr int kTop    = 4;
 constexpr int kGap    = 12;     ///< между панелями
 constexpr double kMinWindowMs = 10000;   ///< сильнее 10 с не увеличиваем
+constexpr int kBandH   = 10;    ///< цветная полоса (вид «Разом»)
+constexpr int kBandGap = 6;
 
 QColor mix(const QColor &a, const QColor &b, double k)
 {
@@ -129,6 +133,25 @@ void TimeSeriesPlot::setPanelVisible(int panel, bool visible)
 void TimeSeriesPlot::setPanelLog(int panel, bool log)
 {
     m_panels[panel].log = log;
+    update();
+}
+
+void TimeSeriesPlot::setCombined(bool on)
+{
+    m_combined = on;
+    update();
+}
+
+void TimeSeriesPlot::setPanelRole(int panel, Role role)
+{
+    m_panels[panel].role = role;
+    update();
+}
+
+void TimeSeriesPlot::setBandLevels(int panel, double ok, double low)
+{
+    m_panels[panel].bandOk = ok;
+    m_panels[panel].bandLow = low;
     update();
 }
 
@@ -282,6 +305,11 @@ void TimeSeriesPlot::paintEvent(QPaintEvent *)
     if (m_x1 <= m_x0)
         dataRange(m_x0, m_x1);
 
+    if (m_combined) {
+        paintCombined(p);
+        return;
+    }
+
     for (int i = 0; i < order.size(); ++i)
         drawPanel(p, m_panels[order[i]], panelRect(i, order.size()), i == order.size() - 1);
     drawTimeAxis(p, panelRect(order.size() - 1, order.size()));
@@ -393,42 +421,66 @@ void TimeSeriesPlot::drawPanel(QPainter &p, const Panel &panel, const QRectF &r,
     p.restore();
 
     // ---- заголовок панели и легенда ----
-    QFont bf = font();
-    bf.setBold(true);
-    p.setFont(bf);
-    const QFontMetrics bfm(bf);
-    QString title = panel.title;
-    double x = r.left() + 8;
-    const double ty = r.top() + bfm.ascent() + 4;
-    QColor bg = base;
-    bg.setAlpha(200);
-    // подложка, чтобы заголовок читался поверх линий
-    double w = bfm.horizontalAdvance(title) + 8;
+    // Пункт легенды: линия (0), заливка (1) или полоса (2)
+    struct Item { QString name; QColor color; int kind; };
+    QVector<Item> items;
     int withData = 0;
     for (const Series &s : panel.series)
         withData += s.points.isEmpty() ? 0 : 1;
-    const bool legend = withData > 1;           // легенда — когда в панели больше одной линии с данными
-    if (legend)
+    // «Окремо» — легенда, когда в панели больше одной линии; «Разом» — всегда (на графике не только ПАЕД)
+    if (withData > 1 || m_combined)
         for (const Series &s : panel.series)
             if (!s.points.isEmpty())
-                w += 22 + fm.horizontalAdvance(s.name);
+                items.append({s.name, s.color, 0});
+    if (m_combined) {
+        for (const Panel &o : m_panels) {
+            if (!o.visible || o.role == Role::Primary || o.series.isEmpty() || o.series.first().points.isEmpty())
+                continue;
+            items.append({o.series.first().name, o.series.first().color, o.role == Role::Background ? 1 : 2});
+        }
+    }
+
+    QFont bf = font();
+    bf.setBold(true);
+    const QFontMetrics bfm(bf);
+    const QString title = panel.title;
+    double x = r.left() + 8;
+    const double ty = r.top() + bfm.ascent() + 4;
+    double w = bfm.horizontalAdvance(title) + 8;
+    for (const Item &it : std::as_const(items))
+        w += 22 + fm.horizontalAdvance(it.name) + 4;
+
+    // подложка, чтобы заголовок читался поверх линий
+    QColor bg = base;
+    bg.setAlpha(200);
     p.setPen(Qt::NoPen);
     p.setBrush(bg);
     p.drawRoundedRect(QRectF(x - 4, r.top() + 2, w + 4, bfm.height() + 4), 4, 4);
+    p.setFont(bf);
     p.setPen(text);
     p.drawText(QPointF(x, ty), title);
     x += bfm.horizontalAdvance(title) + 12;
     p.setFont(font());
-    if (legend) {
-        for (const Series &s : panel.series) {
-            if (s.points.isEmpty())
-                continue;
-            p.setPen(QPen(s.color, 2.4));
-            p.drawLine(QPointF(x, ty - fm.ascent() / 2.5), QPointF(x + 14, ty - fm.ascent() / 2.5));
-            p.setPen(label);
-            p.drawText(QPointF(x + 18, ty), s.name);
-            x += 22 + fm.horizontalAdvance(s.name);
+    for (const Item &it : std::as_const(items)) {
+        const double my = ty - fm.ascent() / 2.5;
+        if (it.kind == 0) {
+            p.setPen(QPen(it.color, 2.4));
+            p.drawLine(QPointF(x, my), QPointF(x + 14, my));
+        } else if (it.kind == 1) {
+            QColor c = it.color;
+            c.setAlpha(70);
+            p.setPen(Qt::NoPen);
+            p.setBrush(c);
+            p.drawRoundedRect(QRectF(x, my - 5, 14, 10), 2, 2);
+        } else {
+            // полоса: зелёный / жёлтый / красный — цвет по порогам, а не цвет линии
+            const QColor cs[] = {StatusColor::ok(), StatusColor::warning(), StatusColor::alarm()};
+            for (int k = 0; k < 3; ++k)
+                p.fillRect(QRectF(x + k * 14.0 / 3, my - 3, 14.0 / 3 + 0.3, 6), cs[k]);
         }
+        p.setPen(label);
+        p.drawText(QPointF(x + 18, ty), it.name);
+        x += 22 + fm.horizontalAdvance(it.name) + 4;
     }
 }
 
@@ -546,7 +598,7 @@ void TimeSeriesPlot::mouseMoveEvent(QMouseEvent *e)
 {
     m_mouse = e->pos();
     if (m_drag) {
-        const QRectF r = panelRect(0, 1);
+        const QRectF r = xRect();
         const double dt = (e->pos().x() - m_dragFrom.x()) / r.width() * (m_dragX1 - m_dragX0);
         m_x0 = m_dragX0 - dt;
         m_x1 = m_dragX1 - dt;
@@ -571,7 +623,7 @@ void TimeSeriesPlot::wheelEvent(QWheelEvent *e)
 {
     if (!hasData())
         return;
-    const QRectF r = panelRect(0, 1);
+    const QRectF r = xRect();
     const double at = pxToX(e->position().x(), r);
     const double k = e->angleDelta().y() > 0 ? 0.8 : 1.25;
     m_x0 = at - (at - m_x0) * k;
@@ -584,4 +636,287 @@ void TimeSeriesPlot::leaveEvent(QEvent *)
 {
     m_mouse = QPoint(-1, -1);
     update();
+}
+
+/////////////////////////////////// Вид «Разом» ///////////////////////////////////
+
+bool TimeSeriesPlot::bandVisible() const
+{
+    for (const Panel &p : m_panels)
+        if (p.visible && p.role == Role::Band)
+            return true;
+    return false;
+}
+
+bool TimeSeriesPlot::backgroundVisible() const
+{
+    for (const Panel &p : m_panels)
+        if (p.visible && p.role == Role::Background)
+            return true;
+    return false;
+}
+
+/**
+    @brief Поле графика «Разом»: слева — шкала ПАЕД, справа — шкала заливки (высоты),
+           снизу — цветная полоса и ось времени.
+*/
+QRectF TimeSeriesPlot::combinedRect() const
+{
+    const QFontMetrics fm(font());
+    const double right = backgroundVisible() ? 48 : kRight;
+    const double bottom = fm.height() + 8 + (bandVisible() ? kBandH + kBandGap : 0);
+    return QRectF(kLeft, kTop, width() - kLeft - right, height() - kTop - bottom);
+}
+
+QRectF TimeSeriesPlot::bandRect() const
+{
+    const QRectF r = combinedRect();
+    return QRectF(r.left(), r.bottom() + kBandGap, r.width(), kBandH);
+}
+
+QRectF TimeSeriesPlot::xRect() const
+{
+    return m_combined ? combinedRect() : panelRect(0, 1);
+}
+
+QColor TimeSeriesPlot::bandColor(const Panel &p, double v) const
+{
+    if (v >= p.bandOk)
+        return StatusColor::ok();
+    if (v >= p.bandLow)
+        return StatusColor::warning();
+    return StatusColor::alarm();
+}
+
+int TimeSeriesPlot::nearest(const QVector<QPointF> &pts, double t)
+{
+    if (pts.isEmpty())
+        return -1;
+    auto it = std::lower_bound(pts.cbegin(), pts.cend(), t, [](const QPointF &a, double v) { return a.x() < v; });
+    int k = int(it - pts.cbegin());
+    if (k >= pts.size() || (k > 0 && t - pts[k - 1].x() < pts[k].x() - t))
+        --k;
+    return k;
+}
+
+void TimeSeriesPlot::paintCombined(QPainter &p)
+{
+    const QRectF r = combinedRect();
+
+    // сначала фон (заливка высоты), поверх — главные линии с сеткой
+    for (const Panel &panel : std::as_const(m_panels))
+        if (panel.visible && panel.role == Role::Background)
+            drawBackground(p, panel, r);
+    bool primary = false;
+    for (const Panel &panel : std::as_const(m_panels))
+        if (panel.visible && panel.role == Role::Primary) {
+            drawPanel(p, panel, r, true);
+            primary = true;
+        }
+    if (!primary) {                     // ПАЕД выключена — хотя бы рамка осей
+        const QColor axis = mix(palette().color(QPalette::Base), palette().color(QPalette::Text), 0.35);
+        p.setPen(QPen(axis, 1));
+        p.drawLine(r.bottomLeft(), r.bottomRight());
+    }
+    for (const Panel &panel : std::as_const(m_panels))
+        if (panel.visible && panel.role == Role::Band)
+            drawBand(p, panel, bandRect());
+
+    QRectF axisRect = r;
+    if (bandVisible())
+        axisRect.setBottom(bandRect().bottom());
+    drawTimeAxis(p, axisRect);
+    drawCombinedHover(p);
+}
+
+/**
+    @brief Заливка от низа графика (высота): без линии и точек, шкала справа без сетки.
+*/
+void TimeSeriesPlot::drawBackground(QPainter &p, const Panel &panel, const QRectF &r)
+{
+    if (panel.series.isEmpty() || panel.series.first().points.isEmpty())
+        return;
+    const Series &s = panel.series.first();
+
+    // шкала от 0: высота читается как «над землёй»
+    double hi = 0;
+    for (const QPointF &pt : s.points)
+        if (pt.x() >= m_x0 && pt.x() <= m_x1)
+            hi = qMax(hi, pt.y());
+    if (hi <= 0)
+        hi = 1;
+    // заливка — примерно до 2/3 высоты графика: фон не закрывает ПАЕД сверху
+    const double ys = niceStep(hi * 1.5 / 4);
+    const Range y{0, std::ceil(hi * 1.5 / ys) * ys};
+    Panel lin = panel;
+    lin.log = false;
+
+    // заливка: участки между разрывами
+    QColor fill = s.color;
+    fill.setAlpha(40);
+    QColor edge = s.color;
+    edge.setAlpha(110);
+    p.save();
+    p.setClipRect(r);
+    QPainterPath area, top;
+    int i = 0;
+    const int n = s.points.size();
+    while (i < n) {
+        int j = i;
+        while (j + 1 < n && s.points[j + 1].x() - s.points[j].x() <= m_gapMs)
+            ++j;
+        QPainterPath seg;
+        seg.moveTo(xToPx(s.points[i].x(), r), r.bottom());
+        for (int k = i; k <= j; ++k) {
+            const QPointF px(xToPx(s.points[k].x(), r), yToPx(s.points[k].y(), y, lin, r));
+            seg.lineTo(px);
+            if (k == i) top.moveTo(px); else top.lineTo(px);
+        }
+        seg.lineTo(xToPx(s.points[j].x(), r), r.bottom());
+        seg.closeSubpath();
+        area.addPath(seg);
+        i = j + 1;
+    }
+    p.fillPath(area, fill);
+    p.setPen(QPen(edge, 1));
+    p.setBrush(Qt::NoBrush);
+    p.drawPath(top);
+    p.restore();
+
+    // шкала справа — цветом заливки
+    const QFontMetrics fm(font());
+    QColor lc = s.color;
+    lc = mix(palette().color(QPalette::Base), lc, 0.85);
+    p.setPen(lc);
+    for (double v = 0; v <= y.hi + ys * 1e-6; v += ys) {
+        const double py = yToPx(v, y, lin, r);
+        p.drawLine(QPointF(r.right(), py), QPointF(r.right() + 3, py));
+        p.drawText(QPointF(r.right() + 6, py + fm.ascent() / 2.0 - 1), axisNumber(v, ys));
+    }
+    p.drawLine(r.topRight(), r.bottomRight());
+}
+
+/**
+    @brief Цветная полоса (аккумулятор): участок от точки до следующей — цветом её значения;
+           разрыв данных — пусто.
+*/
+void TimeSeriesPlot::drawBand(QPainter &p, const Panel &panel, const QRectF &r)
+{
+    const QColor base = palette().color(QPalette::Base);
+    const QColor text = palette().color(QPalette::Text);
+    p.setPen(Qt::NoPen);
+    p.setBrush(mix(base, text, 0.08));
+    p.drawRoundedRect(r, 3, 3);
+
+    // подпись слева от полосы
+    const QFontMetrics fm(font());
+    QFont sf = font();
+    sf.setPointSizeF(qMax(7.0, sf.pointSizeF() - 1));
+    p.setFont(sf);
+    p.setPen(mix(base, text, 0.65));
+    const QString name = tr("АКБ");
+    p.drawText(QRectF(0, r.top() - 4, r.left() - 6, r.height() + 8), Qt::AlignRight | Qt::AlignVCenter, name);
+    p.setFont(font());
+
+    if (panel.series.isEmpty())
+        return;
+    const QVector<QPointF> &pts = panel.series.first().points;
+    p.save();
+    QPainterPath clip;
+    clip.addRoundedRect(r, 3, 3);
+    p.setClipPath(clip);
+    for (int i = 0; i < pts.size(); ++i) {
+        const double t0 = pts[i].x();
+        double t1 = i + 1 < pts.size() ? pts[i + 1].x() : t0;
+        if (t1 - t0 > m_gapMs)
+            t1 = t0;                        // разрыв — только узкая метка точки
+        const double x0 = xToPx(t0, r);
+        const double x1 = qMax(xToPx(t1, r), x0 + 2);
+        if (x1 < r.left() || x0 > r.right())
+            continue;
+        p.fillRect(QRectF(x0, r.top(), x1 - x0 + 0.5, r.height()), bandColor(panel, pts[i].y()));
+    }
+    p.restore();
+}
+
+/**
+    @brief Наведение «Разом»: вертикальная линия через график и полосу, точки на линиях
+           и одна плашка со временем и всеми значениями.
+*/
+void TimeSeriesPlot::drawCombinedHover(QPainter &p)
+{
+    const QRectF r = combinedRect();
+    const QRectF full = bandVisible() ? r.united(bandRect()) : r;
+    if (m_drag || !full.contains(m_mouse))
+        return;
+
+    const double t = pxToX(m_mouse.x(), r);
+    const QColor text = palette().color(QPalette::Text);
+    const QColor base = palette().color(QPalette::Base);
+    p.setPen(QPen(mix(base, text, 0.55), 1, Qt::DashLine));
+    p.drawLine(QPointF(m_mouse.x(), r.top()), QPointF(m_mouse.x(), full.bottom()));
+
+    struct Line { QColor color; QString text; };
+    QVector<Line> lines;
+    double nearT = -1;
+
+    for (const Panel &panel : std::as_const(m_panels)) {
+        if (!panel.visible)
+            continue;
+        for (const Series &s : panel.series) {
+            const int k = nearest(s.points, t);
+            if (k < 0)
+                continue;
+            const QPointF pt = s.points[k];
+            if (std::abs(xToPx(pt.x(), r) - m_mouse.x()) > 40)
+                continue;
+            if (nearT < 0)
+                nearT = pt.x();
+            QString v = number(pt.y(), panel.decimals);
+            if (!panel.unit.isEmpty())
+                v += QLatin1Char(' ') + panel.unit;
+            const QString &name = s.name;
+            QColor c = panel.role == Role::Band ? bandColor(panel, pt.y()) : s.color;
+            lines.append({c, name + QStringLiteral(":  ") + v});
+
+            if (panel.role == Role::Primary) {
+                const Range y = yRange(panel);
+                p.setPen(QPen(base, 1.5));
+                p.setBrush(s.color);
+                p.drawEllipse(QPointF(xToPx(pt.x(), r), yToPx(pt.y(), y, panel, r)), 4, 4);
+            }
+        }
+    }
+
+    // время — на оси
+    const QFontMetrics fm(font());
+    const QString ts = QDateTime::fromMSecsSinceEpoch(qint64(t)).toLocalTime().toString("HH:mm:ss");
+    drawBadge(p, QPointF(m_mouse.x() - (fm.horizontalAdvance(ts) + 10) / 2.0, full.bottom() + fm.height() + 6),
+              ts, mix(base, text, 0.8), false);
+    if (lines.isEmpty())
+        return;
+
+    // плашка со значениями — рядом с курсором, по ту сторону, где больше места
+    int w = 0;
+    for (const Line &l : std::as_const(lines))
+        w = qMax(w, fm.horizontalAdvance(l.text));
+    const double bw = w + 30, bh = lines.size() * (fm.height() + 2) + 10;
+    const bool left = m_mouse.x() > r.center().x();
+    QRectF box(left ? m_mouse.x() - 12 - bw : m_mouse.x() + 12, m_mouse.y() - bh / 2, bw, bh);
+    if (box.top() < r.top() + 2)        box.moveTop(r.top() + 2);
+    if (box.bottom() > r.bottom() - 2)  box.moveBottom(r.bottom() - 2);
+
+    QColor bg = base;
+    bg.setAlpha(235);
+    p.setPen(QPen(mix(base, text, 0.25), 1));
+    p.setBrush(bg);
+    p.drawRoundedRect(box, 6, 6);
+    for (int i = 0; i < lines.size(); ++i) {
+        const double ly = box.top() + 5 + i * (fm.height() + 2);
+        p.setPen(Qt::NoPen);
+        p.setBrush(lines[i].color);
+        p.drawRoundedRect(QRectF(box.left() + 8, ly + fm.height() / 2.0 - 4, 8, 8), 2, 2);
+        p.setPen(text);
+        p.drawText(QPointF(box.left() + 22, ly + fm.ascent()), lines[i].text);
+    }
 }
