@@ -52,6 +52,8 @@ qt_add_executable(DroneGroundStation
     ui/modules/indicatorPanel/indicatorpanel.cpp ui/modules/indicatorPanel/indicatorpanel.h
     ui/modules/eventLog/eventlog.cpp ui/modules/eventLog/eventlog.h
     ui/modules/spectrumView/spectrumplot.cpp ui/modules/spectrumView/spectrumplot.h
+    ui/modules/timeSeries/timeseriesplot.cpp ui/modules/timeSeries/timeseriesplot.h
+    ui/modules/timeSeries/timeseriesview.cpp ui/modules/timeSeries/timeseriesview.h
     ui/modules/spectrumView/spectrumview.cpp ui/modules/spectrumView/spectrumview.h
     ui/modules/preflight/preflightchecklist.cpp ui/modules/preflight/preflightchecklist.h
     ui/modules/alarmCenter/alarmcenter.cpp ui/modules/alarmCenter/alarmcenter.h

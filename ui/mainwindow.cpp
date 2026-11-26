@@ -275,6 +275,7 @@ void MainWindow::setupCore()
     connect(settingsPage, &SettingsPage::coreSettingsChanged, core, [this](const CoreSettings &s) {
         core->applySettings(s);
         mapWidget->setDoseThresholds(s.warnLevel, s.alarmLevel);
+        instrumentsPage->timeSeriesView()->setThresholds(s.warnLevel, s.alarmLevel);
     });
 
     // ---- страница «Розвідка» (Р2-3): область, проверка ядром, ID04 ----
@@ -403,6 +404,14 @@ void MainWindow::setupCore()
         connect(core, &DroneCore::spectrumFinished, spectrum, &SpectrumView::setSpectrum);
     }
 
+    // ---- графики по времени полёта (Р2-9): текущий — живые измерения, прошлый — по запросу ----
+    TimeSeriesView *series = instrumentsPage->timeSeriesView();
+    connect(core, &DroneCore::measurement,     series, &TimeSeriesView::appendLive);
+    connect(core, &DroneCore::timeSeriesReady, series, &TimeSeriesView::onTimeSeriesReady);
+    connect(core, &DroneCore::sessionStarted,  series, [series](const SessionInfo &info) {
+        series->clearLive(info.name);
+    });
+
     // ---- окно команд ID05–ID14 (Р2-4) ----
     connect(core, &DroneCore::allowedCommandsChanged, commandsWindow, &DroneCommandsWindow::onAllowedCommands);
     connect(core, &DroneCore::linkStatusChanged,      commandsWindow, &DroneCommandsWindow::onLinkStatus);
@@ -471,6 +480,7 @@ void MainWindow::setupCore()
     // ---- запуск ----
     const CoreSettings settings = settingsPage->coreSettings();     // из файла настроек (Р2-5)
     mapWidget->setDoseThresholds(settings.warnLevel, settings.alarmLevel);
+    instrumentsPage->timeSeriesView()->setThresholds(settings.warnLevel, settings.alarmLevel);
     core->applySettings(settings);
 
     // Порт — тот, что выбрали в прошлый раз (Р2-1). Его нет в системе — не открываем, сообщаем
@@ -590,6 +600,8 @@ void MainWindow::applySessionView(const SessionData &d)
     alarmDrawer->center()->setAlarms(d.alarms);
     if (auto *log = instrumentsPage->findChild<EventLog *>())
         log->loadSession(d);
+    instrumentsPage->timeSeriesView()->showArchive(d.info.id, d.info.name);
+    core->requestTimeSeries(d.info.id);             // ответ — timeSeriesReady → графики
     indicatorPanel->onSessionOpened(d.info);
     reconPage->setReadOnly(true);
     commandsWindow->setReadOnly(true);
@@ -607,6 +619,7 @@ void MainWindow::returnToCurrentFlight()
         return;
     viewingSession = false;
     mapWidget->closeSessionView();
+    instrumentsPage->timeSeriesView()->showLive();
     reconPage->setReadOnly(false);
     commandsWindow->setReadOnly(false);
     updateFlightActions();

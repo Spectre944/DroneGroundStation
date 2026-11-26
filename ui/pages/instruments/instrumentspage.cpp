@@ -10,7 +10,10 @@ InstrumentsPage::InstrumentsPage(QWidget *parent)
     auto spectrumView = new SpectrumView(this);
     auto eventLog = new EventLog(this);
 
+    m_timeSeries = new TimeSeriesView(this);
+
     addInstrumentWidget(spectrumView);
+    addInstrumentWidget(m_timeSeries);
     addInstrumentWidget(eventLog);
 
 }

@@ -5,6 +5,7 @@
 
 #include "ui/modules/spectrumView/spectrumview.h"
 #include "ui/modules/eventLog/eventlog.h"
+#include "ui/modules/timeSeries/timeseriesview.h"
 
 namespace Ui {
 class InstrumentsPage;
@@ -24,8 +25,12 @@ public:
     // Добавить виджет прибора в конец списка (над растяжкой)
     void addInstrumentWidget(QWidget *widget, int stretch = 0);
 
+    /// «Графіки польоту» (Р2-9) — данные подаёт MainWindow::setupCore
+    TimeSeriesView *timeSeriesView() const { return m_timeSeries; }
+
 private:
     Ui::InstrumentsPage *ui;
+    TimeSeriesView *m_timeSeries = nullptr;
 };
 
 #endif // INSTRUMENTSPAGE_H
