@@ -8,6 +8,10 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QKeySequence>
+#include <utility>
+#include <QUrl>
+#include <QDir>
+#include <QDesktopServices>
 #include <QSplitter>
 #include <QStackedWidget>
 
@@ -25,6 +29,7 @@
 #include "ui/modules/coreTexts/coretexts.h"
 #include "ui/windows/dronecommands/dronecommandswindow.h"
 #include "ui/windows/sdimport/sdimport.h"
+#include "ui/windows/csvexport/csvexport.h"
 #include "ui/modules/leftMenu/leftmenu.h"
 #include <memory>
 #include <limits>
@@ -184,7 +189,11 @@ void MainWindow::setupMenu()
         sdImportWindow->raise();
         sdImportWindow->activateWindow();
     });
-    // TODO (Р2-7): «Експорт у CSV…» — сюда, после импорта SD
+    // Экспорт CSV (Р2-7)
+    csvExportWindow = new CsvExportWindow(this);
+    csvExportWindow->hide();
+    actCsvExport = data->addAction("Експорт у CSV…");
+    connect(actCsvExport, &QAction::triggered, this, [this] { csvExportWindow->open(); });
 
     // ---- «Вигляд»: страницы (те же действия, что в левом меню) ----
     QMenu *view = bar->addMenu("Вигляд");
@@ -435,6 +444,32 @@ void MainWindow::setupCore()
         }
     });
 
+    // ---- экспорт CSV (Р2-7): окно и быстрый экспорт из ПКМ по полёту ----
+    connect(csvExportWindow, &CsvExportWindow::flightsRequested, core, &DroneCore::listSessions);
+    connect(core, &DroneCore::sessionsListed, csvExportWindow, &CsvExportWindow::onSessionsListed);
+    connect(csvExportWindow, &CsvExportWindow::exportRequested, this,
+            [this](qint64 id, const QString &folder, quint32 parts) {
+        exportOwner = ExportOwner::Window;
+        core->exportCsv(id, folder, parts);
+    });
+    connect(databasePage, &DatabasePage::quickExportRequested,  this, &MainWindow::quickExport);
+    connect(databasePage, &DatabasePage::exportWindowRequested, csvExportWindow, &CsvExportWindow::open);
+    connect(core, &DroneCore::exportFinished, this, [this](bool ok, const QString &path) {
+        const ExportOwner owner = std::exchange(exportOwner, ExportOwner::None);
+        if (owner == ExportOwner::Window) {
+            csvExportWindow->onExportFinished(ok, path);    // может сразу отправить следующий полёт
+        } else if (owner == ExportOwner::Quick) {
+            if (ok)
+                NotificationManager::showAction(NotificationManager::Success,
+                                                QDir::toNativeSeparators(path), "Експорт CSV — збережено",
+                                                "Відкрити папку", [path] {
+                                                    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+                                                });
+            else
+                NotificationManager::showError(path, "Експорт CSV — помилка");
+        }
+    });
+
     // ---- полёты (Р2-2): список в «База даних», просмотр прошлого на карте ----
     connect(databasePage, &DatabasePage::flightsRequested, core, &DroneCore::listSessions);
     connect(databasePage, &DatabasePage::pointsRequested,  core, &DroneCore::queryArchive);
@@ -453,12 +488,14 @@ void MainWindow::setupCore()
     connect(core, &DroneCore::sessionStarted, this, [this](const SessionInfo &info) {
         currentSession = info;
         databasePage->setCurrentSession(info.id);
+        csvExportWindow->setCurrentSession(info.id);
         updateFlightActions();
     });
     connect(core, &DroneCore::sessionFinished, this, [this](const SessionInfo &info) {
         if (info.id == currentSession.id) {
             currentSession = SessionInfo();
             databasePage->setCurrentSession(-1);
+            csvExportWindow->setCurrentSession(-1);
         }
         updateFlightActions();
     });
@@ -580,6 +617,20 @@ void MainWindow::saveSplitter()
 // ---------------------------------------------------------------------------
 //  Полёты (Р2-2): просмотр прошлого полёта и возврат к текущему
 // ---------------------------------------------------------------------------
+
+/**
+    @brief ПКМ по полёту → «Експортувати в CSV»: все части в <папка программы>/export,
+           имена файлов — от ядра; итог — уведомлением с кнопкой «Відкрити папку».
+*/
+void MainWindow::quickExport(qint64 sessionId)
+{
+    if (exportOwner != ExportOwner::None || csvExportWindow->isBusy()) {
+        NotificationManager::showWarning("Зачекайте — триває попередній експорт");
+        return;
+    }
+    exportOwner = ExportOwner::Quick;
+    core->exportCsv(sessionId, CsvExportWindow::defaultFolder(), ExAll);
+}
 
 void MainWindow::openFlight(qint64 sessionId)
 {

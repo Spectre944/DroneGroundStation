@@ -33,6 +33,10 @@ public:
     explicit DatabasePage(QWidget *parent = nullptr);
     ~DatabasePage();
 
+    /// Полёт в формате таблицы: {id, «Параметри», «Дані польоту»} — и для окна экспорта CSV
+    static QVector<QVariant> flightRow(const SessionInfo &s, bool current);
+    static QStringList flightHeaders();
+
 public slots:
     void onCenterMarkerChanged(smappoint centerPosition);
     void onArchiveThreatClicked(int index);          ///< клик по точке на карте — выделить строку
@@ -54,6 +58,8 @@ signals:
     void flightsRequested();                          ///< → DroneCore::listSessions
     void pointsRequested(const SessionFilter &filter);///< → DroneCore::queryArchive
     void openFlightRequested(qint64 sessionId);       ///< просмотр полёта на карте
+    void quickExportRequested(qint64 sessionId);      ///< ПКМ → «Експортувати в CSV» (папка export)
+    void exportWindowRequested(qint64 sessionId);     ///< ПКМ → «Експорт у CSV…» (окно, полёт выбран)
 
 private:
     Ui::DatabasePage *ui;

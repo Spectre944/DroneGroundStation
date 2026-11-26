@@ -242,23 +242,12 @@ void DatabasePage::rebuildTable()
     //   столбец 1 «Параметри» — где и когда, столбец 2 — данные
     if (m_showFlights) {
         QVector<QVector<QVariant>> rows;
-        for (const SessionInfo &s : std::as_const(m_flights)) {
-            const QDateTime st = s.startTime.toLocalTime();
-            const QString params = QStringLiteral("Назва\n%1\n\nЧас:  %2\nДата: %3")
-                                       .arg(s.name, st.toString("HH:mm:ss"), st.toString("dd.MM.yyyy"));
-            QString data = QStringLiteral("Тривалість: .. %1\nВимірювань: .. %2\nSD-карта: .... %3\nСтан: ........ %4")
-                               .arg(durationText(s.startTime, s.endTime))
-                               .arg(s.measurementCount)
-                               .arg(s.noSd ? QStringLiteral("без SD") : QStringLiteral("так"),
-                                    s.id == m_currentSession ? QStringLiteral("поточний")
-                                    : s.endTime.isValid()    ? QStringLiteral("завершено")
-                                                             : QStringLiteral("не завершено"));
-            rows.append({s.id, params, data});
-        }
+        for (const SessionInfo &s : std::as_const(m_flights))
+            rows.append(flightRow(s, s.id == m_currentSession));
         if (rows.isEmpty())
             rows.append({QString(), m_waitFlights ? QStringLiteral("Завантаження…") : QStringLiteral("Польотів не знайдено")});
         m_flightSection = model->getSections().size();
-        model->addSection("Польоти", {"ID", "Параметри", "Дані польоту"}, rows, tint(0.06));
+        model->addSection("Польоти", flightHeaders(), rows, tint(0.06));
     }
 
     if (m_showPoints) {
@@ -283,6 +272,30 @@ void DatabasePage::rebuildTable()
 
     view->resizeColumnsToContents();
     view->resizeRowsToContents();
+}
+
+/**
+    @brief Строка полёта в формате таблицы «База даних» (как в РХБ: многострочные ячейки).
+    @note  Общая для страницы и окна «Експорт у CSV» — одинаковый вид полёта везде.
+*/
+QVector<QVariant> DatabasePage::flightRow(const SessionInfo &s, bool current)
+{
+    const QDateTime st = s.startTime.toLocalTime();
+    const QString params = QStringLiteral("Назва\n%1\n\nЧас:  %2\nДата: %3")
+                               .arg(s.name, st.toString("HH:mm:ss"), st.toString("dd.MM.yyyy"));
+    const QString data = QStringLiteral("Тривалість: .. %1\nВимірювань: .. %2\nSD-карта: .... %3\nСтан: ........ %4")
+                             .arg(durationText(s.startTime, s.endTime))
+                             .arg(s.measurementCount)
+                             .arg(s.noSd ? QStringLiteral("без SD") : QStringLiteral("так"),
+                                  current                ? QStringLiteral("поточний")
+                                  : s.endTime.isValid()  ? QStringLiteral("завершено")
+                                                         : QStringLiteral("не завершено"));
+    return {s.id, params, data};
+}
+
+QStringList DatabasePage::flightHeaders()
+{
+    return {"ID", "Параметри", "Дані польоту"};
 }
 
 QPair<int, int> DatabasePage::locate(int row) const
@@ -313,6 +326,11 @@ void DatabasePage::showContextMenu(const QPoint &pos)
         const SessionInfo s = m_flights[at.second];
         menu.addAction(QStringLiteral("Переглянути політ «%1»").arg(s.name), this,
                        [this, s] { emit openFlightRequested(s.id); });
+        // Экспорт CSV (Р2-7): быстрый — все части в папку export рядом с программой;
+        // окно — выбор частей и папки
+        menu.addSeparator();
+        menu.addAction(QStringLiteral("Експортувати в CSV"), this, [this, s] { emit quickExportRequested(s.id); });
+        menu.addAction(QStringLiteral("Експорт у CSV…"), this, [this, s] { emit exportWindowRequested(s.id); });
     } else if (at.first == 2) {
         const int i = at.second;
         menu.addAction(QStringLiteral("Показати на карті"), this, [this, i] { emit archiveTableThreatClicked(i); });

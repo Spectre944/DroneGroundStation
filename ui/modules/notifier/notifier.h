@@ -12,6 +12,9 @@
 //  - Стопка внизу по центру окна, новые снизу, не больше maxNotifications.
 //  - Одинаковое сообщение не дублируется: у существующего растёт счётчик "×N".
 //  - Наведение мыши ставит таймер на паузу, клик - закрывает.
+//  - Кнопка действия под текстом (showAction), например «Відкрити папку»:
+//      NotificationManager::showAction(NotificationManager::Success, "Збережено в …", QString(),
+//                                      "Відкрити папку", [] { QDesktopServices::openUrl(…); });
 //  - Цвета берутся из палитры окна (светлая / тёмная тема), рисуется вручную,
 //    поэтому таблицы стилей родителей на вид не влияют.
 // ============================================================================
@@ -21,6 +24,7 @@
 #include <QList>
 #include <QPointer>
 #include <QWidget>
+#include <functional>
 
 class QTimer;
 class QVariantAnimation;
@@ -40,6 +44,7 @@ public:
     QString message() const { return m_message; }
     bool    isClosing() const { return m_closing; }
 
+    void setAction(const QString &text, std::function<void()> callback);   // кнопка под текстом
     void bump();                         // повтор того же сообщения: ×N и таймер заново
     void appear();                       // показать с анимацией
     void dismiss();                      // скрыть с анимацией и удалить
@@ -64,6 +69,7 @@ private:
     void  relayout();
     void  tick();
     QRect closeRect() const;
+    QRect actionRect() const;            // пусто — кнопки нет
     qreal progress() const;              // 1 -> 0 оставшееся время
 
     int     m_type;
@@ -77,6 +83,10 @@ private:
     bool          m_hovered = false;
     bool          m_closeHover = false;
     bool          m_closing = false;
+
+    QString               m_actionText;
+    std::function<void()> m_action;
+    bool                  m_actionHover = false;
 
     qreal m_opacity = 0.0;
     QTimer *m_ticker = nullptr;
@@ -108,6 +118,10 @@ public:
     static void showSuccess(const QString& message, const QString& title = QString());
     static void show(NotificationType type, const QString& message,
                      const QString& title = QString(), int durationMs = -1);
+    // С кнопкой действия под текстом; клик по кнопке — callback и закрыть тост.
+    // Живёт вдвое дольше обычного, чтобы успеть нажать.
+    static void showAction(NotificationType type, const QString& message, const QString& title,
+                           const QString& actionText, std::function<void()> callback);
 
     // Окно, в котором показываются тосты. По умолчанию - главное окно приложения.
     void setHost(QWidget *host);
@@ -130,7 +144,8 @@ private:
     explicit NotificationManager(QObject* parent = nullptr);
     ~NotificationManager() override = default;
 
-    void showNotification(const QString& message, const QString& title, NotificationType type, int durationMs);
+    void showNotification(const QString& message, const QString& title, NotificationType type, int durationMs,
+                          const QString& actionText = QString(), std::function<void()> callback = {});
     QWidget *resolveHost();
     void positionNotifications(bool animated = true);
     void onToastDismissed(ToastWidget *toast);

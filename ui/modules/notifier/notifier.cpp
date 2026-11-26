@@ -145,7 +145,29 @@ void ToastWidget::relayout()
         h += wrappedHeight(m_message, font(), textW);
     }
     h = qMax(h, ICON);
+    if (!m_actionText.isEmpty())
+        h += 8 + QFontMetrics(font()).height() + 8;     // кнопка действия
     setFixedSize(WIDTH, h + 2 * PAD + BAR + 2 * SHADOW);
+}
+
+void ToastWidget::setAction(const QString &text, std::function<void()> callback)
+{
+    m_actionText = text;
+    m_action = std::move(callback);
+    relayout();
+    update();
+}
+
+/// Кнопка действия — под текстом, на одной вертикали с ним
+QRect ToastWidget::actionRect() const
+{
+    if (m_actionText.isEmpty())
+        return QRect();
+    const QFontMetrics fm(font());
+    const int x = SHADOW + PAD + ICON + GAP;
+    const int h = fm.height() + 8;
+    const int bottom = height() - SHADOW - 1 - BAR - PAD + 2;
+    return QRect(x, bottom - h, fm.horizontalAdvance(m_actionText) + 20, h);
 }
 
 QRect ToastWidget::closeRect() const
@@ -260,12 +282,20 @@ void ToastWidget::mouseMoveEvent(QMouseEvent *e)
         m_closeHover = over;
         update(closeRect().adjusted(-2, -2, 2, 2));
     }
+    const bool overAction = actionRect().contains(e->position().toPoint());
+    if (overAction != m_actionHover) {
+        m_actionHover = overAction;
+        update();
+    }
 }
 
 void ToastWidget::mouseReleaseEvent(QMouseEvent *e)
 {
-    if (e->button() == Qt::LeftButton)
-        dismiss();
+    if (e->button() != Qt::LeftButton)
+        return;
+    if (m_action && actionRect().contains(e->position().toPoint()))
+        m_action();
+    dismiss();
 }
 
 void ToastWidget::paintEvent(QPaintEvent *)
@@ -328,6 +358,22 @@ void ToastWidget::paintEvent(QPaintEvent *)
         p.setFont(font());
         p.setPen(m_title.isEmpty() ? t.text : t.sub);
         p.drawText(QRect(textX, y, textW, 10000), Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop, msgText);
+    }
+
+    // кнопка действия
+    if (!m_actionText.isEmpty()) {
+        const QRect ar = actionRect();
+        QColor fill = accent;
+        fill.setAlpha(m_actionHover ? 70 : 38);
+        p.setPen(QPen(accent, 1));
+        p.setBrush(fill);
+        p.drawRoundedRect(QRectF(ar).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
+        QFont fb = font();
+        fb.setBold(true);
+        p.setFont(fb);
+        p.setPen(t.text);
+        p.drawText(ar, Qt::AlignCenter, m_actionText);
+        p.setFont(font());
     }
 
     // кнопка закрытия + счётчик повторов
@@ -405,6 +451,12 @@ void NotificationManager::show(NotificationType type, const QString& message, co
     instance().showNotification(message, title, type, durationMs);
 }
 
+void NotificationManager::showAction(NotificationType type, const QString& message, const QString& title,
+                                     const QString& actionText, std::function<void()> callback)
+{
+    instance().showNotification(message, title, type, instance().duration * 2, actionText, std::move(callback));
+}
+
 void NotificationManager::setHost(QWidget *w)
 {
     if (host == w)
@@ -438,7 +490,8 @@ QWidget *NotificationManager::resolveHost()
 }
 
 void NotificationManager::showNotification(const QString& message, const QString& title,
-                                           NotificationType type, int durationMs)
+                                           NotificationType type, int durationMs,
+                                           const QString& actionText, std::function<void()> callback)
 {
     // В журнал / боковую панель - всегда, даже если показать негде
     emit notificationAdded(title.isEmpty() ? message : title + QStringLiteral(": ") + message,
@@ -467,6 +520,8 @@ void NotificationManager::showNotification(const QString& message, const QString
     }
 
     auto *toast = new ToastWidget(type, title, message, durationMs, h);
+    if (!actionText.isEmpty())
+        toast->setAction(actionText, std::move(callback));
     connect(toast, &ToastWidget::dismissed, this, &NotificationManager::onToastDismissed);
     activeNotifications.append(toast);
 

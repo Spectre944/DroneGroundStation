@@ -42,6 +42,7 @@ qt_add_executable(DroneGroundStation
     ui/modules/coreTexts/coretexts.cpp ui/modules/coreTexts/coretexts.h
     ui/windows/dronecommands/dronecommandswindow.cpp ui/windows/dronecommands/dronecommandswindow.h
     ui/windows/sdimport/sdimport.cpp ui/windows/sdimport/sdimport.h
+    ui/windows/csvexport/csvexport.cpp ui/windows/csvexport/csvexport.h
     ui/components/combobox/combobox.cpp ui/components/combobox/combobox.h ui/components/spinbox/spinbox.cpp ui/components/spinbox/spinbox.h
     ui/modules/searchBar/searchbar.cpp ui/modules/searchBar/searchbar.h ui/modules/searchBar/searchbar.ui
     ui/components/button/button.cpp ui/components/button/button.h ui/components/button/toggleswitch.cpp ui/components/button/toggleswitch.h ui/components/menu/menu.cpp ui/components/menu/menu.h
