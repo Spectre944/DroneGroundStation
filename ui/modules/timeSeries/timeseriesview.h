@@ -14,6 +14,9 @@
            (showLive) график текущего полёта сразу полный.
            Галочки — какие панели показывать; ПАЕД — линейная или логарифмическая шкала.
            Пороги «попередження» и «тривога» — пунктиром на панели ПАЕД.
+           Вид «Разом» (по умолчанию) / «Окремо» — кнопками над графиком, выбор запоминается
+           (graphs/combined). «Разом»: ПАЕД — линии, высота — бледная заливка (шкала справа),
+           аккумулятор — цветная полоса под осью по порогам setBatteryLevels.
 */
 
 #include <QVector>
@@ -39,6 +42,8 @@ public slots:
     void showArchive(qint64 sessionId, const QString &name);   ///< ждать timeSeriesReady(id)
     void onTimeSeriesReady(qint64 sessionId, const QVector<Measurement> &series);
     void setThresholds(double warn, double alarm);      ///< мкЗв/год
+    /// Пороги полосы аккумулятора «Разом»: ≥ ok — зелёный, ≥ low — жёлтый, ниже — красный
+    void setBatteryLevels(double ok, double low);
 
 private:
     void fill(const QVector<Measurement> &series);
@@ -52,6 +57,8 @@ private:
     QCheckBox   *m_batt = nullptr;
     QCheckBox   *m_log = nullptr;
     QPushButton *m_reset = nullptr;
+    QPushButton *m_together = nullptr;  ///< вид «Разом»
+    QPushButton *m_apart = nullptr;     ///< вид «Окремо»
 
     int m_pPaed = -1, m_sPaed = -1, m_sPaed1m = -1;     ///< панель ПАЕД и её линии
     int m_pHeight = -1, m_sHeight = -1;

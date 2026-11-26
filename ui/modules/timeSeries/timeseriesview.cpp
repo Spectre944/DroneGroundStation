@@ -1,13 +1,22 @@
 #include "timeseriesview.h"
 #include "timeseriesplot.h"
 
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include "backend/settings/settings.h"
 #include "ui/modules/indicatorPanel/indicatoritem.h"   // StatusColor
+
+namespace {
+const QString KEY_COMBINED = QStringLiteral("graphs/combined");
+// Пороги полосы аккумулятора по умолчанию (временно — порогов напряжения в ядре и настройках нет)
+constexpr double kBattOk  = 11.4;
+constexpr double kBattLow = 11.0;
+}
 
 TimeSeriesView::TimeSeriesView(QWidget *parent)
     : QWidget(parent)
@@ -27,6 +36,16 @@ TimeSeriesView::TimeSeriesView(QWidget *parent)
     head->addWidget(title);
     head->addSpacing(8);
     head->addWidget(m_source, 1);
+    // вид: всё на одном графике или панелями
+    m_together = new QPushButton(tr("Разом"), this);
+    m_apart = new QPushButton(tr("Окремо"), this);
+    auto *mode = new QButtonGroup(this);
+    for (QPushButton *b : {m_together, m_apart}) {
+        b->setCheckable(true);
+        mode->addButton(b);
+        head->addWidget(b);
+    }
+    head->addSpacing(8);
     m_reset = new QPushButton(tr("Весь політ"), this);
     head->addWidget(m_reset);
     lay->addLayout(head);
@@ -55,10 +74,26 @@ TimeSeriesView::TimeSeriesView(QWidget *parent)
     m_sPaed   = m_plot->addSeries(m_pPaed, tr("ПАЕД"), StatusColor::info());
     m_sPaed1m = m_plot->addSeries(m_pPaed, tr("на 1 м"), StatusColor::spectrum());
     m_pHeight = m_plot->addPanel(tr("Висота LIDAR, м"), tr("м"), 1);
-    m_sHeight = m_plot->addSeries(m_pHeight, tr("Висота"), StatusColor::ok());
+    // высота — «земляной» цвет: не путается с зелёным полосы аккумулятора и синим ПАЕД
+    m_sHeight = m_plot->addSeries(m_pHeight, tr("Висота"), QColor(0x9A, 0x84, 0x5E));
     m_pBatt   = m_plot->addPanel(tr("Акумулятор, В"), tr("В"), 2);
-    m_sBatt   = m_plot->addSeries(m_pBatt, tr("Напруга"), StatusColor::warning());
+    m_sBatt   = m_plot->addSeries(m_pBatt, tr("АКБ"), StatusColor::warning());
     lay->addWidget(m_plot, 1);
+
+    // роли в виде «Разом»: ПАЕД — главная, высота — фон, аккумулятор — цветная полоса
+    m_plot->setPanelRole(m_pPaed, TimeSeriesPlot::Role::Primary);
+    m_plot->setPanelRole(m_pHeight, TimeSeriesPlot::Role::Background);
+    m_plot->setPanelRole(m_pBatt, TimeSeriesPlot::Role::Band);
+    setBatteryLevels(kBattOk, kBattLow);
+
+    const bool together = Settings::instance().getValue(KEY_COMBINED, true).toBool();
+    (together ? m_together : m_apart)->setChecked(true);
+    m_plot->setCombined(together);
+    connect(m_together, &QPushButton::toggled, this, [this](bool on) {
+        m_plot->setCombined(on);
+        Settings::instance().setValue(KEY_COMBINED, on);
+        Settings::instance().saveSettings();
+    });
 
     connect(m_paed,   &QCheckBox::toggled, this, [this](bool on) { m_plot->setPanelVisible(m_pPaed, on); });
     connect(m_height, &QCheckBox::toggled, this, [this](bool on) { m_plot->setPanelVisible(m_pHeight, on); });
@@ -119,6 +154,11 @@ void TimeSeriesView::onTimeSeriesReady(qint64 sessionId, const QVector<Measureme
     m_loading = false;
     fill(series);
     updateTitle();
+}
+
+void TimeSeriesView::setBatteryLevels(double ok, double low)
+{
+    m_plot->setBandLevels(m_pBatt, ok, low);
 }
 
 void TimeSeriesView::setThresholds(double warn, double alarm)

@@ -14,6 +14,15 @@
            Наведение — вертикальная линия через все панели, время внизу и значения
            каждой линии в ближайшей точке.
            Разрыв линии — если между соседними точками больше gapMs (нет данных).
+
+           Два вида (setCombined):
+             «Окремо» — каждая панель своей полосой, одна под другой;
+             «Разом»  — всё на одном графике, у каждой панели своя роль (setPanelRole):
+               Primary    — линии на переднем плане, шкала и сетка слева, пороги;
+               Background — бледная заливка от низа, шкала справа без сетки;
+               Band       — цветная полоса под осью: зелёная / жёлтая / красная по порогам
+                            (setBandLevels), точное значение — при наведении.
+             При наведении в виде «Разом» — одна плашка со всеми значениями.
 */
 
 #include <QColor>
@@ -26,6 +35,9 @@ class TimeSeriesPlot : public QWidget
 {
     Q_OBJECT
 public:
+    /// Роль панели в виде «Разом»
+    enum class Role { Primary, Background, Band };
+
     /// Одна линия: точки (время мс, значение)
     struct Series {
         QString name;
@@ -45,6 +57,8 @@ public:
         int     decimals = 2;
         bool    log = false;            ///< логарифмическая шкала (значения > 0)
         bool    visible = true;
+        Role    role = Role::Primary;
+        double  bandOk = 0, bandLow = 0; ///< пороги полосы (Role::Band)
         QVector<Series> series;
         QVector<Level>  levels;
     };
@@ -59,6 +73,12 @@ public:
     void setPanelVisible(int panel, bool visible);
     void setPanelLog(int panel, bool log);
     void clearData();
+
+    void setCombined(bool on);                                  ///< «Разом» / «Окремо»
+    bool combined() const { return m_combined; }
+    void setPanelRole(int panel, Role role);                    ///< для вида «Разом»
+    /// Пороги цветной полосы: ≥ ok — зелёный, ≥ low — жёлтый, ниже — красный
+    void setBandLevels(int panel, double ok, double low);
 
     void resetZoom();                   ///< весь полёт
     void setGapMs(qint64 ms)            { m_gapMs = ms; update(); }
@@ -93,11 +113,25 @@ private:
     void drawHover(QPainter &p, const QVector<int> &order);
     void drawBadge(QPainter &p, const QPointF &anchor, const QString &text, const QColor &bg, bool left);
 
+    // ---- вид «Разом» ----
+    QRectF xRect() const;               ///< область по X (для мыши) в текущем виде
+    QRectF combinedRect() const;        ///< поле графика без полосы и оси времени
+    QRectF bandRect() const;            ///< цветная полоса под графиком
+    bool   bandVisible() const;
+    bool   backgroundVisible() const;
+    QColor bandColor(const Panel &p, double v) const;
+    void paintCombined(QPainter &p);
+    void drawBackground(QPainter &p, const Panel &panel, const QRectF &r);
+    void drawBand(QPainter &p, const Panel &panel, const QRectF &r);
+    void drawCombinedHover(QPainter &p);
+    static int nearest(const QVector<QPointF> &pts, double t);
+
     QVector<Panel> m_panels;
     double  m_x0 = 0, m_x1 = 0;         ///< видимое окно времени, мс; 0/0 — весь полёт
     bool    m_follow = true;            ///< окно следует за новыми точками (не увеличено вручную)
     qint64  m_gapMs = 60000;
     QString m_empty;
+    bool    m_combined = false;
 
     bool    m_drag = false;
     QPoint  m_dragFrom;
