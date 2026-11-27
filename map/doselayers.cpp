@@ -279,6 +279,7 @@ MeasurementLayer::Point MeasurementLayer::makePoint(const Measurement &m)
     pt.has1m = m.hasPaed1m;
     pt.lidarCm = m.lidarCm;
     pt.flags = m.flags;
+    pt.sd = m.source == DataSource::Sd;
     pt.time = m.time;
     pt.id = m.id;
     return pt;
@@ -367,7 +368,7 @@ void MeasurementLayer::ensureSprites(qreal dpr, qreal radius)
     const qreal half = radius + 2.5;
     const int px = int(std::ceil(half * 2 * dpr));
 
-    auto make = [&](const QColor &fill, bool hollow) {
+    auto make = [&](const QColor &fill, bool hollow, bool square = false) {
         QImage img(px, px, QImage::Format_ARGB32_Premultiplied);
         img.setDevicePixelRatio(dpr);
         img.fill(Qt::transparent);
@@ -380,6 +381,12 @@ void MeasurementLayer::ensureSprites(qreal dpr, qreal radius)
             sp.drawEllipse(c, radius - 0.3, radius - 0.3);
             sp.setPen(QPen(fill, 1.4));
             sp.drawEllipse(c, radius - 0.3, radius - 0.3);
+        } else if (square) {
+            // SD-карта: скруглённый квадрат с тёмной обводкой — отличается от точек по радио
+            const qreal a = radius * 0.92;
+            sp.setPen(QPen(QColor(40, 40, 40, 210), radius >= 3 ? 1.4 : 1.0));
+            sp.setBrush(fill);
+            sp.drawRoundedRect(QRectF(c.x() - a, c.y() - a, 2 * a, 2 * a), a * 0.35, a * 0.35);
         } else {
             sp.setPen(QPen(QColor(255, 255, 255, 235), radius >= 3 ? 1.5 : 1.0));
             sp.setBrush(fill);
@@ -390,8 +397,11 @@ void MeasurementLayer::ensureSprites(qreal dpr, qreal radius)
 
     m_sprites.resize(64);
     const QVector<QRgb> &lut = m_scale->lut();
-    for (int k = 0; k < 64; ++k)
+    m_sdSprites.resize(64);
+    for (int k = 0; k < 64; ++k) {
         m_sprites[k] = make(QColor(lut[k * 4 + 2]), false);
+        m_sdSprites[k] = make(QColor(lut[k * 4 + 2]), false, true);
+    }
     m_badSprite = make(kMuted, true);
 
     m_spriteDpr = dpr;
@@ -404,7 +414,8 @@ const QImage &MeasurementLayer::spriteFor(const Point &pt) const
 {
     if (!pt.reliable())
         return m_badSprite;
-    return m_sprites[m_scale->lutIndex(pt.value) >> 2];
+    const int k = m_scale->lutIndex(pt.value) >> 2;
+    return pt.sd ? m_sdSprites[k] : m_sprites[k];
 }
 
 void MeasurementLayer::paintPointIntoCache(QPainter &cp, const Point &pt, double world) const
@@ -643,9 +654,13 @@ void MeasurementLayer::drawCard(QPainter &p, const QPointF &s, const Point &pt, 
     gp.longt = pt.lon;
     lines << formatMapPoint(gp, m_coordType);
     lines << QString("Вимір #%1").arg(pt.id > 0 ? pt.id : index + 1);
+    if (pt.sd)
+        lines << QString("Джерело: SD-карта");
 
+    // Почему точка серая: не входит в теплову карту и не дає тривог (Р2-12)
     const QString warn = pt.reliable() ? QString()
-                                       : QString("Недостовірна: %1").arg(flagsText(pt.flags));
+                                       : QString("Недостовірна: %1 — не входить у теплову карту, тривог не дає")
+                                             .arg(flagsText(pt.flags));
     const QColor accent = pt.reliable() ? m_scale->color(pt.value) : kMuted;
     drawCardBox(p, s, title, pt.reliable() ? levelTextColor(lvl) : kMuted.darker(130),
                 accent, lines, warn, bounds);
@@ -1149,4 +1164,15 @@ void DoseLegendLayer::draw(QPainter &p)
                           : QColor(0x6A, 0x75, 0x80));
         p.drawText(QPointF(tx, bar.bottom() + 3 + mk.ascent()), s);
     }
+}
+
+// ======================================================================
+// dosemap::drawCard — карточка для других слоёв (значки спектров)
+// ======================================================================
+
+void dosemap::drawCard(QPainter &p, const QPointF &anchor, const QString &title, const QColor &titleColor,
+                       const QColor &accent, const QStringList &lines, const QString &warnLine,
+                       const QRect &bounds)
+{
+    drawCardBox(p, anchor, title, titleColor, accent, lines, warnLine, bounds);
 }

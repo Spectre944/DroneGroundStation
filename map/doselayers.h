@@ -56,6 +56,10 @@ View currentView();
 // Число для подписи: 0.08 / 0.42 / 3.41 / 12.4 / 150
 QString formatDose(float v);
 
+// Карточка точки в стиле плашек карты (та же, что у точек измерений) — для других слоёв
+void drawCard(QPainter &p, const QPointF &anchor, const QString &title, const QColor &titleColor,
+              const QColor &accent, const QStringList &lines, const QString &warnLine, const QRect &bounds);
+
 } // namespace dosemap
 
 // ============================================================================
@@ -152,6 +156,7 @@ private:
         bool      has1m = false;
         quint16   lidarCm = 0;
         quint32   flags = 0;
+        bool      sd = false;     // с SD-карты (DataSource::Sd) — квадратная точка
         QDateTime time;
         qint64    id = 0;
         bool reliable() const { return flags == MfNone; }
@@ -189,6 +194,7 @@ private:
 
     // спрайты точек: 64 оттенка шкалы + "недостоверная"
     QVector<QImage> m_sprites;
+    QVector<QImage> m_sdSprites;    // точки с SD-карты — скруглённый квадрат того же цвета
     QImage  m_badSprite;
     qreal   m_spriteDpr = 0;
     qreal   m_spriteR = 0;
