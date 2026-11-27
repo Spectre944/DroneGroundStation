@@ -27,10 +27,15 @@ public:
 
     /// «Графіки польоту» (Р2-9) — данные подаёт MainWindow::setupCore
     TimeSeriesView *timeSeriesView() const { return m_timeSeries; }
+    /// Окно спектра и журнал событий (Р2-11) — данные подаёт MainWindow::setupCore
+    SpectrumView   *spectrumView() const   { return m_spectrum; }
+    EventLog       *eventLog() const       { return m_eventLog; }
 
 private:
     Ui::InstrumentsPage *ui;
     TimeSeriesView *m_timeSeries = nullptr;
+    SpectrumView   *m_spectrum = nullptr;
+    EventLog       *m_eventLog = nullptr;
 };
 
 #endif // INSTRUMENTSPAGE_H

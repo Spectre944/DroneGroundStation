@@ -400,15 +400,14 @@ void MainWindow::setupCore()
         mapWidget->setCenter(pt);
     });
 
-    // ---- страница «Прилади»: журнал событий и спектр ----
-    // Виджеты создаёт InstrumentsPage; доступа к ним снаружи пока нет — находим по типу.
-    if (auto *log = instrumentsPage->findChild<EventLog *>()) {
+    // ---- страница «Прилади»: журнал событий и спектр (Р2-11: доступ через InstrumentsPage) ----
+    if (auto *log = instrumentsPage->eventLog()) {
         connect(core, &DroneCore::event,           log, &EventLog::onEvent);
         connect(core, &DroneCore::commandFinished, log, &EventLog::onCommandFinished);
         connect(core, &DroneCore::alarm,           log, &EventLog::onAlarm);
         connect(core, &DroneCore::coreError,       log, &EventLog::onCoreError);
     }
-    if (auto *spectrum = instrumentsPage->findChild<SpectrumView *>()) {
+    if (auto *spectrum = instrumentsPage->spectrumView()) {
         connect(core, &DroneCore::spectrumUpdated,  spectrum, &SpectrumView::setSpectrum);
         connect(core, &DroneCore::spectrumFinished, spectrum, &SpectrumView::setSpectrum);
     }
@@ -649,7 +648,7 @@ void MainWindow::applySessionView(const SessionData &d)
     viewingSession = true;
     mapWidget->showSessionView(d);
     alarmDrawer->center()->setAlarms(d.alarms);
-    if (auto *log = instrumentsPage->findChild<EventLog *>())
+    if (auto *log = instrumentsPage->eventLog())
         log->loadSession(d);
     instrumentsPage->timeSeriesView()->showArchive(d.info.id, d.info.name);
     core->requestTimeSeries(d.info.id);             // ответ — timeSeriesReady → графики
@@ -681,7 +680,7 @@ void MainWindow::returnToCurrentFlight()
         indicatorPanel->onSessionStarted(currentSession);
     } else {
         alarmDrawer->center()->setAlarms({});
-        if (auto *log = instrumentsPage->findChild<EventLog *>())
+        if (auto *log = instrumentsPage->eventLog())
             log->loadSession(SessionData());
         SessionInfo none;
         indicatorPanel->onSessionFinished(none);
@@ -691,7 +690,7 @@ void MainWindow::returnToCurrentFlight()
 void MainWindow::applyLiveRestore(const SessionData &d)
 {
     alarmDrawer->center()->setAlarms(d.alarms);
-    if (auto *log = instrumentsPage->findChild<EventLog *>())
+    if (auto *log = instrumentsPage->eventLog())
         log->loadSession(d);
     indicatorPanel->onSessionStarted(currentSession);
 }
