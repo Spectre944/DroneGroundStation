@@ -1178,6 +1178,7 @@ void MapWidget::setupLayers()
     archiveLayer     = new ThreatLayer(ThreatLayer::Kind::Archive, this);
     measurementLayer = new MeasurementLayer(&doseScale, this);
     archivePointsLayer = new MeasurementLayer(&doseScale, this);
+    spectrumLayer    = new SpectrumLayer(this);
     threatLayer      = new ThreatLayer(ThreatLayer::Kind::Active, this);
     vehicleLayer     = new VehicleLayer(this);
     doseLegend       = new DoseLegendLayer(&doseScale, measurementLayer, doseGridLayer, this);
@@ -1212,6 +1213,7 @@ void MapWidget::setupLayers()
     addLayer(archiveLayer);
     addLayer(archivePointsLayer);
     addLayer(measurementLayer);
+    addLayer(spectrumLayer);                // значки спектров — над точками измерений
     addLayer(threatLayer);
     addLayer(vehicleLayer);
     addLayer(doseLegend);
@@ -1262,6 +1264,7 @@ void MapWidget::setupConnections()
 
     // --- точки измерений ---
     connect(measurementLayer, &MeasurementLayer::measurementSelected, this, &MapWidget::measurementClicked);
+    connect(spectrumLayer, &SpectrumLayer::spectrumClicked, this, &MapWidget::spectrumClicked);
     // «Встановити область пошуку»: вершины → строка «WGS84:ш,д/…» (формат окна «В заданій області»)
     connect(geometryLayer, &GeometryLayer::searchAreaRequested, this, [this](const QVector<smappoint> &pts) {
         QString area;
@@ -1739,6 +1742,7 @@ void MapWidget::setupFilterMenu()
     addFilter("Точки вимірювань",     true, [this](bool on) { measurementLayer->setVisible(on); });
     addFilter("Значення біля точок",  true, [this](bool on) { measurementLayer->setLabelsVisible(on); });
     addFilter("Теплова карта",        true, [this](bool on) { doseGridLayer->setVisible(on); });
+    addFilter("Спектри",              true, [this](bool on) { spectrumLayer->setVisible(on); });
 
 #ifndef QT_NO_DEBUG
     // Только в отладочной сборке: проверка слоёв дозы без ядра
@@ -1948,6 +1952,37 @@ void MapWidget::onMeasurement(const Measurement &m)
         measurementLayer->addMeasurement(m);
 }
 
+/**
+    @brief Спектр текущего полёта (spectrumUpdated / spectrumFinished) → значок на карте.
+    @note  Копим всегда: при возврате из просмотра прошлого полёта значки восстанавливаются.
+*/
+void MapWidget::onSpectrum(const Spectrum &s)
+{
+    const SpectrumInfo &info = s.info;
+    bool found = false;
+    for (SpectrumInfo &x : m_liveSpectra)
+        if ((info.id > 0 && x.id == info.id) || (x.number == info.number && x.startTime == info.startTime)) {
+            x = info;
+            found = true;
+        }
+    if (!found)
+        m_liveSpectra << info;
+    if (!m_viewing)
+        spectrumLayer->upsert(info);
+}
+
+void MapWidget::clearLiveSpectra()
+{
+    m_liveSpectra.clear();
+    if (!m_viewing)
+        spectrumLayer->clear();
+}
+
+void MapWidget::selectSpectrum(qint64 id, quint16 number)
+{
+    spectrumLayer->select(id, number);
+}
+
 void MapWidget::setMeasurements(const QVector<Measurement> &list)
 {
     m_liveMeasurements = list;
@@ -2014,6 +2049,10 @@ void MapWidget::showSessionView(const SessionData &d)
     measurementLayer->setMeasurements(d.measurements);
     measurementLayer->setAvoidPoints({});
     doseGridLayer->clear();                       // сетка прошлого полёта придёт следом
+    QVector<SpectrumInfo> spectra;
+    for (const Spectrum &s : d.spectra)
+        spectra << s.info;
+    spectrumLayer->setSpectra(spectra);
     sessionLayer->setData(d.route, d.areas);
 
     // Плашка: имя и время полёта
@@ -2051,6 +2090,7 @@ void MapWidget::closeSessionView()
     sessionBanner->hide();
 
     measurementLayer->setMeasurements(m_liveMeasurements);
+    spectrumLayer->setSpectra(m_liveSpectra);
     if (m_liveGrid.cols > 0)
         applyGrid(m_liveGrid);
     else {

@@ -22,6 +22,7 @@ qt_add_executable(DroneGroundStation
     map/drawinglayer.cpp map/drawinglayer.h map/maplayer.h
     map/doselayers.cpp map/doselayers.h map/dosetestflight.cpp map/dosetestflight.h
     map/sessionviewlayer.cpp map/sessionviewlayer.h
+    map/spectrumlayer.cpp map/spectrumlayer.h
     backend/settings/settings.h backend/settings/settings.cpp
     ui/windows/overlay/overlaylayer.cpp ui/windows/overlay/overlaylayer.h ui/windows/overlay/overlaywidget.cpp ui/windows/overlay/overlaywidget.h
     ui/windows/overlay/overlaycontainer.h ui/windows/overlay/overlaycontainer.cpp
@@ -53,6 +54,7 @@ qt_add_executable(DroneGroundStation
     ui/modules/indicatorPanel/indicatorpanel.cpp ui/modules/indicatorPanel/indicatorpanel.h
     ui/modules/eventLog/eventlog.cpp ui/modules/eventLog/eventlog.h
     ui/modules/spectrumView/spectrumplot.cpp ui/modules/spectrumView/spectrumplot.h
+    ui/modules/spectrumView/waterfallplot.cpp ui/modules/spectrumView/waterfallplot.h
     ui/modules/timeSeries/timeseriesplot.cpp ui/modules/timeSeries/timeseriesplot.h
     ui/modules/timeSeries/timeseriesview.cpp ui/modules/timeSeries/timeseriesview.h
     ui/modules/spectrumView/spectrumview.cpp ui/modules/spectrumView/spectrumview.h

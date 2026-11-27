@@ -34,6 +34,7 @@
 #include "drawinglayer.h"
 #include "doselayers.h"
 #include "sessionviewlayer.h"
+#include "spectrumlayer.h"
 #include "coords/coordhandler.h"   // CoordHandler
 #include "settings/settings.h"       // Settings
 #include "utilities/utilities.h"
@@ -700,6 +701,7 @@ signals:
     void threatClicked(int index);
     void archiveThreatClicked(int index);
     void measurementClicked(qint64 id, int index);   // клик по точке измерения
+    void spectrumClicked(qint64 id, quint16 number, const QDateTime &startTime);  // клик по значку спектра (Р2-14)
     void sessionViewCloseRequested();                // кнопка «Повернутися до поточного» на плашке просмотра
     void searchAreaSet(const QString &area);         // полигон → фильтр «В заданій області» («WGS84:ш,д/…»)
     void drawingCanceled();
@@ -762,6 +764,9 @@ public slots:
     void clearActiveReconArea();
 
     void onMeasurement(const Measurement &m);                  // новая точка (живой полёт)
+    void onSpectrum(const Spectrum &s);                        // спектр текущего полёта: значок на карте (Р2-14)
+    void clearLiveSpectra();                                   // новый полёт — значки прошлых спектров убрать
+    void selectSpectrum(qint64 id, quint16 number);            // подсветить значок открытого спектра
     void setMeasurements(const QVector<Measurement> &list);    // весь полёт сразу (архив, SessionData)
     void onGridUpdated(const GridData &grid);                  // тепловая карта
     void clearDoseData();                                      // точки + сетка
@@ -837,6 +842,7 @@ private:
     DoseColorScale    doseScale;
     DoseGridLayer    *doseGridLayer = nullptr;
     MeasurementLayer *measurementLayer = nullptr;
+    SpectrumLayer    *spectrumLayer = nullptr;      ///< значки спектров (Р2-14)
     MeasurementLayer *archivePointsLayer = nullptr;   ///< точки поиска по базе
     DoseLegendLayer  *doseLegend = nullptr;
     DoseTestFlight   *testFlight = nullptr;
@@ -849,6 +855,7 @@ private:
     bool                 m_expectViewGrid = false;      ///< ждём сетку прошлого полёта
     QVector<GeoPoint>    m_viewArea;                    ///< по ней узнаём сетку прошлого полёта
     QVector<Measurement> m_liveMeasurements;            ///< точки текущего полёта (на время просмотра)
+    QVector<SpectrumInfo> m_liveSpectra;                ///< спектры текущего полёта (на время просмотра)
     GridData             m_liveGrid;                    ///< последняя сетка текущего полёта
     void applyGrid(const GridData &grid);
     void placeSessionBanner();

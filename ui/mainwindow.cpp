@@ -410,6 +410,18 @@ void MainWindow::setupCore()
     if (auto *spectrum = instrumentsPage->spectrumView()) {
         connect(core, &DroneCore::spectrumUpdated,  spectrum, &SpectrumView::setSpectrum);
         connect(core, &DroneCore::spectrumFinished, spectrum, &SpectrumView::setSpectrum);
+        connect(core, &DroneCore::sessionStarted,   spectrum, &SpectrumView::clearLive);
+
+        // Р2-14: значки спектров на карте; щелчок — спектр на странице «Прилади»
+        connect(core, &DroneCore::spectrumUpdated,  mapWidget, &MapWidget::onSpectrum);
+        connect(core, &DroneCore::spectrumFinished, mapWidget, &MapWidget::onSpectrum);
+        connect(core, &DroneCore::sessionStarted,   mapWidget, &MapWidget::clearLiveSpectra);
+        connect(mapWidget, &MapWidget::spectrumClicked, this,
+                [this, spectrum](qint64 id, quint16 number, const QDateTime &start) {
+            showPage(pageStack->indexOf(instrumentsPage));
+            spectrum->openSpectrum(id, number, start);
+        });
+        connect(spectrum, &SpectrumView::spectrumShown, mapWidget, &MapWidget::selectSpectrum);
     }
 
     // ---- графики по времени полёта (Р2-9): текущий — живые измерения, прошлый — по запросу ----
@@ -651,6 +663,7 @@ void MainWindow::applySessionView(const SessionData &d)
     if (auto *log = instrumentsPage->eventLog())
         log->loadSession(d);
     instrumentsPage->timeSeriesView()->showArchive(d.info.id, d.info.name);
+    instrumentsPage->spectrumView()->showFlightSpectra(d.spectra, d.info.name);
     core->requestTimeSeries(d.info.id);             // ответ — timeSeriesReady → графики
     indicatorPanel->onSessionOpened(d.info);
     reconPage->setReadOnly(true);
@@ -670,6 +683,7 @@ void MainWindow::returnToCurrentFlight()
     viewingSession = false;
     mapWidget->closeSessionView();
     instrumentsPage->timeSeriesView()->showLive();
+    instrumentsPage->spectrumView()->showLive();
     reconPage->setReadOnly(false);
     commandsWindow->setReadOnly(false);
     updateFlightActions();
