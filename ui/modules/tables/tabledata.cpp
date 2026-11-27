@@ -52,14 +52,14 @@ TableControl::TableControl(QWidget *parent)
     clearBtn->setIcon(clearIcon);
     clearBtn->setFixedSize(QSize(40, 40));
     clearBtn->setIconSize(QSize(25, 30));
-    clearBtn->setToolTip("Очистити");
+    clearBtn->setToolTip(tr("Очистити"));
 
     adjustBtn->setFlat(true);
     QIcon adjustIcon = IconHelper::createThemedIcon(":/icons/svg/custom/enlarge.svg");
     adjustBtn->setIcon(adjustIcon);
     adjustBtn->setFixedSize(QSize(40, 40));
     adjustBtn->setIconSize(QSize(25, 30));
-    adjustBtn->setToolTip("Автопідбір ширини стовпців");
+    adjustBtn->setToolTip(tr("Автопідбір ширини стовпців"));
 
     navigatorBtn->setFlat(true);
     QIcon navigatorIcon = IconHelper::createThemedIcon(":/icons/svg/bs5/list-ul.svg");

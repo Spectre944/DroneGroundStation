@@ -1,4 +1,5 @@
 #include "doselayers.h"
+#include <QCoreApplication>
 #include "mapwidget.h"          // formatMapPoint, m_core
 
 #include <QApplication>
@@ -168,10 +169,10 @@ void drawPill(QPainter &p, const QRectF &r, const QString &text, const QColor &t
 QString flagsText(quint32 flags)
 {
     QStringList s;
-    if (flags & MfOutOfArea)    s << "поза областю";
-    if (flags & MfLidarRange)   s << "висота поза діапазоном";
-    if (flags & MfBdbgStat)     s << "стан БДБГ";
-    if (flags & MfDeviceFault)  s << "відмова приладу";
+    if (flags & MfOutOfArea)    s << QCoreApplication::translate("MeasurementLayer", "поза областю");
+    if (flags & MfLidarRange)   s << QCoreApplication::translate("MeasurementLayer", "висота поза діапазоном");
+    if (flags & MfBdbgStat)     s << QCoreApplication::translate("MeasurementLayer", "стан БДБГ");
+    if (flags & MfDeviceFault)  s << QCoreApplication::translate("MeasurementLayer", "відмова приладу");
     return s.join(", ");
 }
 
@@ -279,6 +280,7 @@ MeasurementLayer::Point MeasurementLayer::makePoint(const Measurement &m)
     pt.has1m = m.hasPaed1m;
     pt.lidarCm = m.lidarCm;
     pt.flags = m.flags;
+    pt.sd = m.source == DataSource::Sd;
     pt.time = m.time;
     pt.id = m.id;
     return pt;
@@ -367,7 +369,7 @@ void MeasurementLayer::ensureSprites(qreal dpr, qreal radius)
     const qreal half = radius + 2.5;
     const int px = int(std::ceil(half * 2 * dpr));
 
-    auto make = [&](const QColor &fill, bool hollow) {
+    auto make = [&](const QColor &fill, bool hollow, bool square = false) {
         QImage img(px, px, QImage::Format_ARGB32_Premultiplied);
         img.setDevicePixelRatio(dpr);
         img.fill(Qt::transparent);
@@ -380,6 +382,12 @@ void MeasurementLayer::ensureSprites(qreal dpr, qreal radius)
             sp.drawEllipse(c, radius - 0.3, radius - 0.3);
             sp.setPen(QPen(fill, 1.4));
             sp.drawEllipse(c, radius - 0.3, radius - 0.3);
+        } else if (square) {
+            // SD-карта: скруглённый квадрат с тёмной обводкой — отличается от точек по радио
+            const qreal a = radius * 0.92;
+            sp.setPen(QPen(QColor(40, 40, 40, 210), radius >= 3 ? 1.4 : 1.0));
+            sp.setBrush(fill);
+            sp.drawRoundedRect(QRectF(c.x() - a, c.y() - a, 2 * a, 2 * a), a * 0.35, a * 0.35);
         } else {
             sp.setPen(QPen(QColor(255, 255, 255, 235), radius >= 3 ? 1.5 : 1.0));
             sp.setBrush(fill);
@@ -390,8 +398,11 @@ void MeasurementLayer::ensureSprites(qreal dpr, qreal radius)
 
     m_sprites.resize(64);
     const QVector<QRgb> &lut = m_scale->lut();
-    for (int k = 0; k < 64; ++k)
+    m_sdSprites.resize(64);
+    for (int k = 0; k < 64; ++k) {
         m_sprites[k] = make(QColor(lut[k * 4 + 2]), false);
+        m_sdSprites[k] = make(QColor(lut[k * 4 + 2]), false, true);
+    }
     m_badSprite = make(kMuted, true);
 
     m_spriteDpr = dpr;
@@ -404,7 +415,8 @@ const QImage &MeasurementLayer::spriteFor(const Point &pt) const
 {
     if (!pt.reliable())
         return m_badSprite;
-    return m_sprites[m_scale->lutIndex(pt.value) >> 2];
+    const int k = m_scale->lutIndex(pt.value) >> 2;
+    return pt.sd ? m_sdSprites[k] : m_sprites[k];
 }
 
 void MeasurementLayer::paintPointIntoCache(QPainter &cp, const Point &pt, double world) const
@@ -626,26 +638,30 @@ void MeasurementLayer::drawCard(QPainter &p, const QPointF &s, const Point &pt, 
                                 const QRect &bounds)
 {
     const DoseColorScale::Level lvl = m_scale->level(pt.value);
-    const QString title = dosemap::formatDose(pt.value) + " мкЗв/год";
+    const QString title = dosemap::formatDose(pt.value) + tr(" мкЗв/год");
 
     QStringList lines;
     if (pt.has1m)
-        lines << QString("На 1 м: %1 · на висоті: %2")
+        lines << tr("На 1 м: %1 · на висоті: %2")
                      .arg(dosemap::formatDose(pt.paed1m), dosemap::formatDose(pt.paed));
     else
-        lines << "Без перерахунку на 1 м";
+        lines << tr("Без перерахунку на 1 м");
     if (pt.lidarCm > 0)
-        lines << QString("Висота: %1 м").arg(pt.lidarCm / 100.0, 0, 'f', 1);
+        lines << tr("Висота: %1 м").arg(pt.lidarCm / 100.0, 0, 'f', 1);
     if (pt.time.isValid())
-        lines << QString("Час: %1").arg(pt.time.toString("HH:mm:ss"));
+        lines << tr("Час: %1").arg(pt.time.toString("HH:mm:ss"));
     smappoint gp;
     gp.latt = pt.lat;
     gp.longt = pt.lon;
     lines << formatMapPoint(gp, m_coordType);
-    lines << QString("Вимір #%1").arg(pt.id > 0 ? pt.id : index + 1);
+    lines << tr("Вимір #%1").arg(pt.id > 0 ? pt.id : index + 1);
+    if (pt.sd)
+        lines << tr("Джерело: SD-карта");
 
+    // Почему точка серая: не входит в теплову карту и не дає тривог (Р2-12)
     const QString warn = pt.reliable() ? QString()
-                                       : QString("Недостовірна: %1").arg(flagsText(pt.flags));
+                                       : tr("Недостовірна: %1 — не входить у теплову карту, тривог не дає")
+                                             .arg(flagsText(pt.flags));
     const QColor accent = pt.reliable() ? m_scale->color(pt.value) : kMuted;
     drawCardBox(p, s, title, pt.reliable() ? levelTextColor(lvl) : kMuted.darker(130),
                 accent, lines, warn, bounds);
@@ -733,18 +749,18 @@ void MeasurementLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
         return;
     const Point pt = m_points[h];
 
-    menu.addAction(QString("Вимір: %1 мкЗв/год").arg(dosemap::formatDose(pt.value)))->setEnabled(false);
-    menu.addAction("Скопіювати значення", [pt] {
+    menu.addAction(tr("Вимір: %1 мкЗв/год").arg(dosemap::formatDose(pt.value)))->setEnabled(false);
+    menu.addAction(tr("Скопіювати значення"), [pt] {
         QApplication::clipboard()->setText(dosemap::formatDose(pt.value));
     });
     const CoordType type = m_coordType;
-    menu.addAction("Скопіювати координати точки", [pt, type] {
+    menu.addAction(tr("Скопіювати координати точки"), [pt, type] {
         smappoint gp;
         gp.latt = pt.lat;
         gp.longt = pt.lon;
         QApplication::clipboard()->setText(formatMapPoint(gp, type));
     });
-    menu.addAction("Центрувати на точці", this, [this, pt] { emit centerRequested(pt.lat, pt.lon); });
+    menu.addAction(tr("Центрувати на точці"), this, [this, pt] { emit centerRequested(pt.lat, pt.lon); });
 }
 
 // ======================================================================
@@ -769,7 +785,7 @@ void DoseGridLayer::setGrid(const GridData &grid)
         grid.cols > 8192 || grid.rows > 8192 ||
         !(grid.latMax > grid.latMin) || !(grid.lonMax > grid.lonMin)) {
         qWarning() << "DoseGridLayer: некорректная сетка" << grid.cols << "x" << grid.rows
-                   << "значений" << grid.values.size();
+                   << tr("значений") << grid.values.size();
         return;
     }
     m_grid = grid;
@@ -1029,8 +1045,8 @@ void DoseGridLayer::drawOverlay(QPainter &p)
         const float val = m_grid.values[m_probeCell];
         const bool hot = m_grid.hotspots.contains(m_probeCell);
         const QString text = std::isnan(val)
-                ? QStringLiteral("немає даних")
-                : QString("%1≈ %2 мкЗв/год").arg(hot ? "Гаряча точка · " : "", dosemap::formatDose(val));
+                ? tr("немає даних")
+                : tr("%1≈ %2 мкЗв/год").arg(hot ? tr("Гаряча точка · ") : "", dosemap::formatDose(val));
         const QFont f = mapFont(p.font(), 8);
         p.setFont(f);
         const QFontMetricsF fm(f);
@@ -1099,12 +1115,12 @@ void DoseLegendLayer::draw(QPainter &p)
     p.setFont(fTitle);
     p.setPen(QColor(0x4A, 0x55, 0x60));
     const qreal ty = box.top() + pad + mt.ascent();
-    p.drawText(QPointF(box.left() + pad, ty), "ПАЕД, мкЗв/год");
+    p.drawText(QPointF(box.left() + pad, ty), tr("ПАЕД, мкЗв/год"));
 
     const QRectF bar(box.left() + pad, box.top() + pad + mt.height() + 4, W - 2 * pad, barH);
     if (pts && m_points->maxValue() > 0) {
         const float mx = m_points->maxValue();
-        const QString s = "макс " + dosemap::formatDose(mx);
+        const QString s = tr("макс ") + dosemap::formatDose(mx);
         p.setFont(fMax);
         p.setPen(levelTextColor(m_scale->level(mx)));
         p.drawText(QPointF(box.right() - pad - QFontMetricsF(fMax).horizontalAdvance(s), ty), s);
@@ -1149,4 +1165,15 @@ void DoseLegendLayer::draw(QPainter &p)
                           : QColor(0x6A, 0x75, 0x80));
         p.drawText(QPointF(tx, bar.bottom() + 3 + mk.ascent()), s);
     }
+}
+
+// ======================================================================
+// dosemap::drawCard — карточка для других слоёв (значки спектров)
+// ======================================================================
+
+void dosemap::drawCard(QPainter &p, const QPointF &anchor, const QString &title, const QColor &titleColor,
+                       const QColor &accent, const QStringList &lines, const QString &warnLine,
+                       const QRect &bounds)
+{
+    drawCardBox(p, anchor, title, titleColor, accent, lines, warnLine, bounds);
 }

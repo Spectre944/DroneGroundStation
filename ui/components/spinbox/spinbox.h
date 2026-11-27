@@ -133,10 +133,10 @@ public:
         setAccelerated(true);
 
         dataInput = {
-            "Північний", "Північно-Східний", "Східний", "Південно-Східний",
-            "Південний", "Південно-Західний", "Західний", "Північно-Західний",
-            "Пн", "ПнСх", "Сх", "ПнСх",
-            "Пд", "ПдЗх", "Зх", "ПнЗх"
+            tr("Північний"), tr("Північно-Східний"), tr("Східний"), tr("Південно-Східний"),
+            tr("Південний"), tr("Південно-Західний"), tr("Західний"), tr("Північно-Західний"),
+            tr("Пн"), tr("ПнСх"), tr("Сх"), tr("ПнСх"),
+            tr("Пд"), tr("ПдЗх"), tr("Зх"), tr("ПнЗх")
         };
 
         // Создаем кнопку со стрелкой
@@ -147,14 +147,14 @@ public:
 
         // Создаем меню
         m_menu = new QMenu(this);
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-up.svg"),         "Північний", [this]()          { setValue(0); });
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-up-right.svg"),   "Північно-Східний", [this]()   { setValue(45); });
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-right.svg"),      "Східний", [this]()            { setValue(90); });
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-down-right.svg"), "Південно-Східний", [this]()   { setValue(135); });
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-down.svg"),       "Південний", [this]()          { setValue(180); });
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-down-left.svg"),  "Південно-Західний", [this]()  { setValue(225); });
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-left.svg"),       "Західний", [this]()           { setValue(270); });
-        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-up-left.svg"),    "Північно-Західний", [this]()  { setValue(315); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-up.svg"),         tr("Північний"), [this]()          { setValue(0); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-up-right.svg"),   tr("Північно-Східний"), [this]()   { setValue(45); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-right.svg"),      tr("Східний"), [this]()            { setValue(90); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-down-right.svg"), tr("Південно-Східний"), [this]()   { setValue(135); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-down.svg"),       tr("Південний"), [this]()          { setValue(180); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-down-left.svg"),  tr("Південно-Західний"), [this]()  { setValue(225); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-left.svg"),       tr("Західний"), [this]()           { setValue(270); });
+        m_menu->addAction(QIcon(":/icons/svg/bs5/arrow-up-left.svg"),    tr("Північно-Західний"), [this]()  { setValue(315); });
 
         // Привязываем меню к кнопке
         connect(m_button, &QToolButton::clicked, [this]() {
@@ -210,14 +210,14 @@ protected:
         }
 
         // Если это текстовое направление, конвертируем его в градусы
-        if (comp == "північний" || comp == "пн") return 0;
-        if (comp == "північно-східний") return 45;
-        if (comp == "східний" || comp == "сх") return 90;
-        if (comp == "південно-східний") return 135;
-        if (comp == "південний" || comp == "пд") return 180;
-        if (comp == "південно-західний") return 225;
-        if (comp == "західний" || comp == "зх") return 270;
-        if (comp == "північно-західний") return 315;
+        if (comp == tr("північний") || comp == tr("пн")) return 0;
+        if (comp == tr("північно-східний")) return 45;
+        if (comp == tr("східний") || comp == tr("сх")) return 90;
+        if (comp == tr("південно-східний")) return 135;
+        if (comp == tr("південний") || comp == tr("пд")) return 180;
+        if (comp == tr("південно-західний")) return 225;
+        if (comp == tr("західний") || comp == tr("зх")) return 270;
+        if (comp == tr("північно-західний")) return 315;
 
         return value();
     }
@@ -254,22 +254,22 @@ private:
 
     QString getDirectionText(int value) const {
         if ((value >= 337.5 && value <= 360) || (value >= 0 && value < 22.5))
-            return "Північний";
+            return tr("Північний");
         if (value >= 22.5 && value < 67.5)
-            return "Північно-Східний";
+            return tr("Північно-Східний");
         if (value >= 67.5 && value < 112.5)
-            return "Східний";
+            return tr("Східний");
         if (value >= 112.5 && value < 157.5)
-            return "Південно-Східний";
+            return tr("Південно-Східний");
         if (value >= 157.5 && value < 202.5)
-            return "Південний";
+            return tr("Південний");
         if (value >= 202.5 && value < 247.5)
-            return "Південно-Західний";
+            return tr("Південно-Західний");
         if (value >= 247.5 && value < 292.5)
-            return "Західний";
+            return tr("Західний");
         if (value >= 292.5 && value < 337.5)
-            return "Північно-Західний";
-        return "Північний";  // По умолчанию
+            return tr("Північно-Західний");
+        return tr("Північний");  // По умолчанию
     }
 };
 

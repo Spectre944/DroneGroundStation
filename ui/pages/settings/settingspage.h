@@ -48,6 +48,7 @@ public:
     static constexpr char KEY_FONT_SIZE[]      = "interface/fontSize";
     static constexpr char KEY_FONT_DELTA[]     = "interface/fontDelta";
     static constexpr char KEY_APP_THEME[]      = "interface/appTheme";
+    static constexpr char KEY_LANGUAGE[]       = "interface/language";   ///< "uk" / "en" (Р2-16), main.cpp
     static constexpr char KEY_MAP_FILE[]       = "programm/mapFilePath";
 
     // Настройки ядра (CoreSettings). Нет ключа — значение по умолчанию CoreSettings
@@ -183,6 +184,8 @@ private:
     // Експорт CSV
     SettingsFieldCombobox *m_csvSep  = nullptr;
     SettingsFieldCombobox *m_csvLang = nullptr;
+    SettingsFieldCombobox *m_language = nullptr;    ///< мова інтерфейсу (Р2-16)
+    QString m_runningLanguage;                      ///< язык, с которым запущена программа
 
     // База польотів
     SettingsFieldButton *m_dbField = nullptr;

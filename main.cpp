@@ -29,10 +29,18 @@ int main(int argc, char *argv[])
     QFont appFont = settings.font(FONT_SIZE::MEDIUM);
     a.setFont(appFont);
 
-    QTranslator translator;
-    if(!translator.load(":/locale/qtbase_uk.qm"))
-        qDebug() << "Fail to load default translation";
-    a.installTranslator(&translator);
+    // Мова інтерфейсу (Р2-16): «uk» — исходные тексты + перевод стандартных окон Qt,
+    // «en» — английский перевод программы (:/i18n/..._en.qm, собирается из translations/*.ts).
+    // Меняется в «Налаштування → Інтерфейс», действует после перезапуска.
+    const QString language = settings.getValue("interface/language", QStringLiteral("uk")).toString();
+    QTranslator qtTranslator;
+    QTranslator appTranslator;
+    if (language == QLatin1String("en")) {
+        if (appTranslator.load(QStringLiteral(":/i18n/dronegroundstation_en.qm")))
+            a.installTranslator(&appTranslator);
+    } else if (qtTranslator.load(QStringLiteral(":/locale/qtbase_uk.qm"))) {
+        a.installTranslator(&qtTranslator);
+    }
 
     MainWindow w;
     w.setFont(appFont);

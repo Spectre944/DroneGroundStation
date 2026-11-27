@@ -1,4 +1,5 @@
 #include "dronecommandswindow.h"
+#include <QCoreApplication>
 
 #include <QComboBox>
 #include <QDateTime>
@@ -19,12 +20,12 @@ namespace {
 QString modeText(LoggerMode m)
 {
     switch (m) {
-    case LoggerMode::Test:   return QStringLiteral("перевірка");
-    case LoggerMode::Expect: return QStringLiteral("очікування (політ до області)");
-    case LoggerMode::Work:   return QStringLiteral("розвідка");
-    case LoggerMode::Return: return QStringLiteral("повернення");
-    case LoggerMode::Error:  return QStringLiteral("аварія");
-    default:                 return QStringLiteral("невідомо");
+    case LoggerMode::Test:   return QCoreApplication::translate("DroneCommandsWindow", "перевірка");
+    case LoggerMode::Expect: return QCoreApplication::translate("DroneCommandsWindow", "очікування (політ до області)");
+    case LoggerMode::Work:   return QCoreApplication::translate("DroneCommandsWindow", "розвідка");
+    case LoggerMode::Return: return QCoreApplication::translate("DroneCommandsWindow", "повернення");
+    case LoggerMode::Error:  return QCoreApplication::translate("DroneCommandsWindow", "аварія");
+    default:                 return QCoreApplication::translate("DroneCommandsWindow", "невідомо");
     }
 }
 

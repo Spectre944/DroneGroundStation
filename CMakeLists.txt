@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(DroneGroundStation LANGUAGES CXX C)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat SerialPort Sql)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat SerialPort Sql LinguistTools)
 
 qt_standard_project_setup()
 
@@ -22,6 +22,7 @@ qt_add_executable(DroneGroundStation
     map/drawinglayer.cpp map/drawinglayer.h map/maplayer.h
     map/doselayers.cpp map/doselayers.h map/dosetestflight.cpp map/dosetestflight.h
     map/sessionviewlayer.cpp map/sessionviewlayer.h
+    map/spectrumlayer.cpp map/spectrumlayer.h
     backend/settings/settings.h backend/settings/settings.cpp
     ui/windows/overlay/overlaylayer.cpp ui/windows/overlay/overlaylayer.h ui/windows/overlay/overlaywidget.cpp ui/windows/overlay/overlaywidget.h
     ui/windows/overlay/overlaycontainer.h ui/windows/overlay/overlaycontainer.cpp
@@ -53,6 +54,7 @@ qt_add_executable(DroneGroundStation
     ui/modules/indicatorPanel/indicatorpanel.cpp ui/modules/indicatorPanel/indicatorpanel.h
     ui/modules/eventLog/eventlog.cpp ui/modules/eventLog/eventlog.h
     ui/modules/spectrumView/spectrumplot.cpp ui/modules/spectrumView/spectrumplot.h
+    ui/modules/spectrumView/waterfallplot.cpp ui/modules/spectrumView/waterfallplot.h
     ui/modules/timeSeries/timeseriesplot.cpp ui/modules/timeSeries/timeseriesplot.h
     ui/modules/timeSeries/timeseriesview.cpp ui/modules/timeSeries/timeseriesview.h
     ui/modules/spectrumView/spectrumview.cpp ui/modules/spectrumView/spectrumview.h
@@ -92,6 +94,15 @@ target_link_libraries(DroneGroundStation
         Qt6::Core5Compat
         Qt6::SerialPort
         Qt6::Sql
+)
+
+# ---- Переводы интерфейса (Р2-16) ----
+# Исходный язык — украинский (тексты в tr() и .ui), перевод — английский.
+# Обновить .ts после правки текстов: цель update_translations (lupdate);
+# .qm собирается при сборке и кладётся в ресурсы — :/i18n/dronegroundstation_en.qm
+qt_add_translations(DroneGroundStation
+    TS_FILES translations/dronegroundstation_en.ts
+    RESOURCE_PREFIX "/i18n"
 )
 
 # ---- link_test: проверка DroneLink без окна (консольная программа) ----

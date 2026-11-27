@@ -29,7 +29,7 @@ SpinBoxUnits::SpinBoxUnits(QWidget *parent)
 {
     Q_UNUSED(parent);
     setRange(0, 1000000);
-    setSpecialValueText("Вимкнено");
+    setSpecialValueText(tr("Вимкнено"));
     setAccelerated(true);
     setGroupSeparatorShown(true);
 
@@ -91,7 +91,7 @@ DoubleSpinBoxUnits::DoubleSpinBoxUnits(QWidget *parent)
 {
     Q_UNUSED(parent);
     setRange(0, 1000000);
-    setSpecialValueText("Вимкнено");
+    setSpecialValueText(tr("Вимкнено"));
     setAccelerated(true);
     setGroupSeparatorShown(true);
 
@@ -162,8 +162,8 @@ SpinBoxDirection::SpinBoxDirection(QWidget *parent)
     spinBox->setWrapping(true);
     spinBox->setMinimumSize(StyleConstants::cbrnElementMinW, StyleConstants::cbrnElementMinH);
 
-    comboBox->addItem("DGM (магнітний північний поліс)", "DGM");
-    comboBox->addItem("DGG (географічний північний поліс)", "DGG");
+    comboBox->addItem(tr("DGM (магнітний північний поліс)"), "DGM");
+    comboBox->addItem(tr("DGG (географічний північний поліс)"), "DGG");
     comboBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     comboBox->setMinimumSize(StyleConstants::cbrnElementMinW, StyleConstants::cbrnElementMinH);
 
@@ -200,8 +200,8 @@ SpinBoxDistance::SpinBoxDistance(QWidget *parent)
     spinBox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     spinBox->setMinimumSize(StyleConstants::cbrnElementMinW, StyleConstants::cbrnElementMinH);
 
-    comboBox->addItem("M : метрів", "M");
-    comboBox->addItem("KM : кілометрів", "KM");
+    comboBox->addItem(tr("M : метрів"), "M");
+    comboBox->addItem(tr("KM : кілометрів"), "KM");
     comboBox->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     comboBox->setMinimumSize(StyleConstants::cbrnElementMinW, StyleConstants::cbrnElementMinH);
 

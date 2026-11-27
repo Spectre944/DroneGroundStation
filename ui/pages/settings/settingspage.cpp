@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QFileDialog>
+#include <QProcess>
 #include <QFileInfo>
 #include <QDir>
 #include <QJsonDocument>
@@ -49,17 +50,29 @@ SettingsPage::~SettingsPage()
 
 void SettingsPage::setupInterfaceFields()
 {
-    ui->fontSizeMod->setTextData("Розмір тексту", "Основний розмір тексту в програмі");
+    ui->fontSizeMod->setTextData(tr("Розмір тексту"), tr("Основний розмір тексту в програмі"));
     ui->fontSizeMod->setDataRange(10, 20);
     ui->fontSizeMod->setTextUnits("px");
 
-    ui->fontDeltaSize->setTextData("Варіація розміру тексту",
-                                   "Різниця між стандартним розміром тексту і мінімальним/максимальним значенням");
+    ui->fontDeltaSize->setTextData(tr("Варіація розміру тексту"),
+                                   tr("Різниця між стандартним розміром тексту і мінімальним/максимальним значенням"));
     ui->fontDeltaSize->setDataRange(0, 4);
     ui->fontDeltaSize->setTextUnits("px");
 
-    ui->appTheme->setTextData("Тема програми", "Налаштування зовнішнього вигляду інтерфейсу");
-    ui->appTheme->setComboboxData(QStringList() << "Системна" << "Світла" << "Windows 11");
+    ui->appTheme->setTextData(tr("Тема програми"), tr("Налаштування зовнішнього вигляду інтерфейсу"));
+    ui->appTheme->setComboboxData(QStringList() << tr("Системна") << tr("Світла") << "Windows 11");
+
+    // Мова інтерфейсу (Р2-16): применяется при запуске (main.cpp), поэтому — после перезапуска.
+    // Названия языков — на своём языке, без перевода.
+    m_runningLanguage = Settings::instance().getValue(KEY_LANGUAGE, QStringLiteral("uk")).toString();
+    m_language = new SettingsFieldCombobox(this);
+    m_language->setTextData(tr("Мова інтерфейсу"), tr("Діє після перезапуску програми"));
+    m_language->setComboboxData({QStringLiteral("Українська"), QStringLiteral("English")});
+    m_language->setCurrentIndex(m_runningLanguage == QLatin1String("en") ? 1 : 0);
+    if (auto *box = qobject_cast<QVBoxLayout *>(ui->appTheme->parentWidget()->layout())) {
+        box->addWidget(createHorizontalLine());
+        box->addWidget(m_language);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -72,9 +85,9 @@ void SettingsPage::setupDeviceFields()
 
     // Первая строка блока — окно передполётной проверки (как «Діагностика» в РХБ)
     m_preflightField = new SettingsFieldButton(ui->subFrameDevices);
-    m_preflightField->setTextData("Передпольотна перевірка",
-                                  "Стан приладів логера і запуск перевірки (ID01)");
-    m_preflightField->setButtonText("Відкрити");
+    m_preflightField->setTextData(tr("Передпольотна перевірка"),
+                                  tr("Стан приладів логера і запуск перевірки (ID01)"));
+    m_preflightField->setButtonText(tr("Відкрити"));
     layout->addWidget(m_preflightField);
     layout->addWidget(createHorizontalLine());
 
@@ -89,31 +102,31 @@ void SettingsPage::setupDeviceFields()
     // Приборы ДРОН-1. Радиомодем — на наземной станции, остальные — на борту
     // и опрашиваются логгером, поэтому вместо порта — «логер».
     using DS = SettingsDeviceItem::DeviceStatus;
-    const QString onBoard = QStringLiteral("логер (радіоканал)");
-    addDevice({"Радіомодем",        TypeDev::RADIO,   "-", "—",     DS::Disconnected});
+    const QString onBoard = tr("логер (радіоканал)");
+    addDevice({tr("Радіомодем"),        TypeDev::RADIO,   "-", "—",     DS::Disconnected});
     addDevice({"GPS",               TypeDev::GPS,     "-", onBoard, DS::Disconnected});
     addDevice({"LIDAR",             TypeDev::LIDAR,   "-", onBoard, DS::Disconnected});
-    SettingsDeviceItem *bdbg = addDevice({"БДБГ-15", TypeDev::BDBG, "-", onBoard, DS::Disconnected});
+    SettingsDeviceItem *bdbg = addDevice({tr("БДБГ-15"), TypeDev::BDBG, "-", onBoard, DS::Disconnected});
 
     // Пороги ПАЕД — поля под строкой БДБГ-15, раскрываются кнопкой «пороги» (как в РХБ)
     m_warnLevel = new SettingsFieldDoubleSpinBox(ui->subFrameDevices);
-    m_warnLevel->setTextData("Поріг ПАЕД «попередження»",
-                             "Вимірювання вище — жовті на карті, попередження в журналі");
-    m_warnLevel->setTextUnits("мкЗв/год");
+    m_warnLevel->setTextData(tr("Поріг ПАЕД «попередження»"),
+                             tr("Вимірювання вище — жовті на карті, попередження в журналі"));
+    m_warnLevel->setTextUnits(tr("мкЗв/год"));
     m_warnLevel->setDataRange(0.01, 10000.0);
 
     m_alarmLevel = new SettingsFieldDoubleSpinBox(ui->subFrameDevices);
-    m_alarmLevel->setTextData("Поріг ПАЕД «тривога»",
-                              "Вимірювання вище — тривога (шторка, звук, червоні на карті)");
-    m_alarmLevel->setTextUnits("мкЗв/год");
+    m_alarmLevel->setTextData(tr("Поріг ПАЕД «тривога»"),
+                              tr("Вимірювання вище — тривога (шторка, звук, червоні на карті)"));
+    m_alarmLevel->setTextUnits(tr("мкЗв/год"));
     m_alarmLevel->setDataRange(0.01, 10000.0);
 
     layout->addWidget(m_warnLevel);
     layout->addWidget(m_alarmLevel);
     setupDeviceThresholds(bdbg, {m_warnLevel, m_alarmLevel});
 
-    addDevice({"Акумулятор логера", TypeDev::BATTERY, "-", onBoard, DS::Disconnected});
-    addDevice({"SD-карта",          TypeDev::SDCARD,  "-", onBoard, DS::Disconnected});
+    addDevice({tr("Акумулятор логера"), TypeDev::BATTERY, "-", onBoard, DS::Disconnected});
+    addDevice({tr("SD-карта"),          TypeDev::SDCARD,  "-", onBoard, DS::Disconnected});
 
     // У остальных приборов порогов нет — кнопка неактивна
     for (SettingsDeviceItem *item : std::as_const(m_devices))
@@ -156,7 +169,7 @@ void SettingsPage::onLinkStatus(const LinkStatus &status)
         return;
 
     const QString port = status.portName == QLatin1String(DeviceDetailsWindow::STUB_PORT)
-                       ? QStringLiteral("заглушка (тест)") : status.portName;
+                       ? tr("заглушка (тест)") : status.portName;
     radio->setDevicePort(port.isEmpty() ? QStringLiteral("—") : port);
     using DS = SettingsDeviceItem::DeviceStatus;
     switch (status.state) {
@@ -361,31 +374,31 @@ QVBoxLayout *SettingsPage::addSection(const QString &title)
 
 void SettingsPage::setupReconFields()
 {
-    QVBoxLayout *l = addSection("Розвідка — типові параметри (ID04)");
+    QVBoxLayout *l = addSection(tr("Розвідка — типові параметри (ID04)"));
 
     m_reconMode = new SettingsFieldCombobox(this);
-    m_reconMode->setTextData("Режим розвідки", "Коли логер виконує вимірювання");
-    m_reconMode->setComboboxData({"За командою оператора", "За часом", "За відстанню"});
+    m_reconMode->setTextData(tr("Режим розвідки"), tr("Коли логер виконує вимірювання"));
+    m_reconMode->setComboboxData({tr("За командою оператора"), tr("За часом"), tr("За відстанню")});
 
     m_interval = new SettingsFieldSpinBox(this);
-    m_interval->setTextData("Інтервал між вимірюваннями", "Режим «за часом»: вимірювання через N секунд");
-    m_interval->setTextUnits("с");
+    m_interval->setTextData(tr("Інтервал між вимірюваннями"), tr("Режим «за часом»: вимірювання через N секунд"));
+    m_interval->setTextUnits(tr("с"));
     m_interval->setDataRange(ReconParams::INTERVAL_MIN, ReconParams::INTERVAL_MAX);
 
     m_distance = new SettingsFieldSpinBox(this);
-    m_distance->setTextData("Відстань між вимірюваннями", "Режим «за відстанню»: вимірювання через N метрів");
-    m_distance->setTextUnits("м");
+    m_distance->setTextData(tr("Відстань між вимірюваннями"), tr("Режим «за відстанню»: вимірювання через N метрів"));
+    m_distance->setTextUnits(tr("м"));
     m_distance->setDataRange(ReconParams::DISTANCE_MIN, ReconParams::DISTANCE_MAX);
 
     m_spectrum = new SettingsFieldSpinBox(this);
-    m_spectrum->setTextData("Час набору спектра", "0 — набір до команди «Зупинити набір» (ID12)");
-    m_spectrum->setTextUnits("с");
+    m_spectrum->setTextData(tr("Час набору спектра"), tr("0 — набір до команди «Зупинити набір» (ID12)"));
+    m_spectrum->setTextUnits(tr("с"));
     m_spectrum->setDataRange(ReconParams::SPECTRUM_MIN, ReconParams::SPECTRUM_MAX);
-    m_spectrum->setSpecialValueText("до команди ID12");     // 0 — не «вимкнено», а «до зупинки»
+    m_spectrum->setSpecialValueText(tr("до команди ID12"));     // 0 — не «вимкнено», а «до зупинки»
 
     m_dup = new SettingsFieldCombobox(this);
-    m_dup->setTextData("Коефіцієнт дублювання пакетів",
-                       "Скільки разів логер повторює кожен пакет (надійніше, але повільніше)");
+    m_dup->setTextData(tr("Коефіцієнт дублювання пакетів"),
+                       tr("Скільки разів логер повторює кожен пакет (надійніше, але повільніше)"));
     m_dup->setDataRange(ReconParams::DUP_MIN, ReconParams::DUP_MAX);
 
     const QList<QWidget *> fields = {m_reconMode, m_interval, m_distance, m_spectrum, m_dup};
@@ -402,22 +415,22 @@ void SettingsPage::setupReconFields()
 
 void SettingsPage::setupGridFields()
 {
-    QVBoxLayout *l = addSection("Теплова карта");
+    QVBoxLayout *l = addSection(tr("Теплова карта"));
 
     m_gridCell = new SettingsFieldSpinBox(this);
-    m_gridCell->setTextData("Розмір клітинки", "Крок сітки теплової карти");
-    m_gridCell->setTextUnits("м");
+    m_gridCell->setTextData(tr("Розмір клітинки"), tr("Крок сітки теплової карти"));
+    m_gridCell->setTextUnits(tr("м"));
     m_gridCell->setDataRange(1, 1000);
 
     m_gridRadius = new SettingsFieldSpinBox(this);
-    m_gridRadius->setTextData("Радіус інтерполяції",
-                              "Клітинки далі від найближчої точки — «немає даних». Має бути більше "
-                              "відстані між точками (≈100 м при пакетах раз на 20 с), краще в 1,5 раза");
-    m_gridRadius->setTextUnits("м");
+    m_gridRadius->setTextData(tr("Радіус інтерполяції"),
+                              tr("Клітинки далі від найближчої точки — «немає даних». Має бути більше "
+                                 "відстані між точками (≈100 м при пакетах раз на 20 с), краще в 1,5 раза"));
+    m_gridRadius->setTextUnits(tr("м"));
     m_gridRadius->setDataRange(10, 5000);
 
     m_gridPower = new SettingsFieldDoubleSpinBox(this);
-    m_gridPower->setTextData("Степінь IDW", "Більше — вплив найближчих точок сильніший");
+    m_gridPower->setTextData(tr("Степінь IDW"), tr("Більше — вплив найближчих точок сильніший"));
     m_gridPower->setDataRange(0.5, 5.0);
 
     l->addWidget(m_gridCell);
@@ -433,18 +446,18 @@ void SettingsPage::setupGridFields()
 
 void SettingsPage::setupLinkFields()
 {
-    QVBoxLayout *l = addSection("Зв'язок і область");
+    QVBoxLayout *l = addSection(tr("Зв'язок і область"));
 
     m_linkTimeout = new SettingsFieldSpinBox(this);
-    m_linkTimeout->setTextData("Зв'язок втрачено через",
-                               "Немає пакетів довше — індикатор «Зв'язок втрачено» і подія в журналі");
-    m_linkTimeout->setTextUnits("с");
+    m_linkTimeout->setTextData(tr("Зв'язок втрачено через"),
+                               tr("Немає пакетів довше — індикатор «Зв'язок втрачено» і подія в журналі"));
+    m_linkTimeout->setTextUnits(tr("с"));
     m_linkTimeout->setDataRange(10, 3600);
 
     m_maxArea = new SettingsFieldDoubleSpinBox(this);
-    m_maxArea->setTextData("Найбільший розмір області",
-                           "Область більша за це — помилка перевірки «завелика область»");
-    m_maxArea->setTextUnits("км");
+    m_maxArea->setTextData(tr("Найбільший розмір області"),
+                           tr("Область більша за це — помилка перевірки «завелика область»"));
+    m_maxArea->setTextUnits(tr("км"));
     m_maxArea->setDataRange(0.1, 1000.0);
     m_maxArea->setDecimals(1);
 
@@ -455,32 +468,32 @@ void SettingsPage::setupLinkFields()
 
 void SettingsPage::setupCorrectionFields()
 {
-    QVBoxLayout *l = addSection("Перерахунок ПАЕД на 1 м");
+    QVBoxLayout *l = addSection(tr("Перерахунок ПАЕД на 1 м"));
 
     m_corrOn = new SettingsFieldCombobox(this);
-    m_corrOn->setTextData("Перерахунок на 1 м",
-                          "Значення на висоті польоту перераховується до висоти 1 м над землею");
-    m_corrOn->setComboboxData({"Вимкнено", "Увімкнено"});
+    m_corrOn->setTextData(tr("Перерахунок на 1 м"),
+                          tr("Значення на висоті польоту перераховується до висоти 1 м над землею"));
+    m_corrOn->setComboboxData({tr("Вимкнено"), tr("Увімкнено")});
 
     m_corrMu = new SettingsFieldDoubleSpinBox(this);
-    m_corrMu->setTextData("Коефіцієнт ослаблення μ",
-                          "ПАЕД(1 м) = ПАЕД(h) · e^(μ·(h − 1)). Значення — відкрите питання, уточнити");
-    m_corrMu->setTextUnits("1/м");
+    m_corrMu->setTextData(tr("Коефіцієнт ослаблення μ"),
+                          tr("ПАЕД(1 м) = ПАЕД(h) · e^(μ·(h − 1)). Значення — відкрите питання, уточнити"));
+    m_corrMu->setTextUnits(tr("1/м"));
     m_corrMu->setDecimals(4);
     m_corrMu->setDataRange(0.0, 1.0);
-    m_corrMu->setSpecialValueText("0 — без змін");
+    m_corrMu->setSpecialValueText(tr("0 — без змін"));
 
     m_corrMin = new SettingsFieldSpinBox(this);
-    m_corrMin->setTextData("Найменша висота перерахунку", "Нижче — вимірювання недостовірне; 0 — без обмеження");
-    m_corrMin->setTextUnits("м");
+    m_corrMin->setTextData(tr("Найменша висота перерахунку"), tr("Нижче — вимірювання недостовірне; 0 — без обмеження"));
+    m_corrMin->setTextUnits(tr("м"));
     m_corrMin->setDataRange(0, 1000);
-    m_corrMin->setSpecialValueText("без обмеження");
+    m_corrMin->setSpecialValueText(tr("без обмеження"));
 
     m_corrMax = new SettingsFieldSpinBox(this);
-    m_corrMax->setTextData("Найбільша висота перерахунку", "Вище — вимірювання недостовірне; 0 — без обмеження");
-    m_corrMax->setTextUnits("м");
+    m_corrMax->setTextData(tr("Найбільша висота перерахунку"), tr("Вище — вимірювання недостовірне; 0 — без обмеження"));
+    m_corrMax->setTextUnits(tr("м"));
     m_corrMax->setDataRange(0, 1000);
-    m_corrMax->setSpecialValueText("без обмеження");
+    m_corrMax->setSpecialValueText(tr("без обмеження"));
 
     const QList<QWidget *> fields = {m_corrOn, m_corrMu, m_corrMin, m_corrMax};
     for (int i = 0; i < fields.size(); ++i) {
@@ -492,16 +505,16 @@ void SettingsPage::setupCorrectionFields()
 
 void SettingsPage::setupExportFields()
 {
-    QVBoxLayout *l = addSection("Експорт CSV");
+    QVBoxLayout *l = addSection(tr("Експорт CSV"));
 
     m_csvSep = new SettingsFieldCombobox(this);
-    m_csvSep->setTextData("Десятковий роздільник",
-                          "«,» — для Excel з українськими налаштуваннями, «.» — для інших програм");
-    m_csvSep->setComboboxData({"Кома ( , )", "Крапка ( . )"});
+    m_csvSep->setTextData(tr("Десятковий роздільник"),
+                          tr("«,» — для Excel з українськими налаштуваннями, «.» — для інших програм"));
+    m_csvSep->setComboboxData({tr("Кома ( , )"), tr("Крапка ( . )")});
 
     m_csvLang = new SettingsFieldCombobox(this);
-    m_csvLang->setTextData("Мова заголовків", "Назви стовпців у файлах CSV");
-    m_csvLang->setComboboxData({"Українська", "English"});
+    m_csvLang->setTextData(tr("Мова заголовків"), tr("Назви стовпців у файлах CSV"));
+    m_csvLang->setComboboxData({tr("Українська"), "English"});
 
     l->addWidget(m_csvSep);
     l->addWidget(createHorizontalLine());
@@ -511,9 +524,9 @@ void SettingsPage::setupExportFields()
 void SettingsPage::updateDbFieldText()
 {
     const QString text = m_dbPath.isEmpty()
-        ? QStringLiteral("flights.db поруч із програмою")
+        ? tr("flights.db поруч із програмою")
         : QDir::toNativeSeparators(m_dbPath);
-    m_dbField->setTextData("База польотів", text + QStringLiteral(" · діє після перезапуску"));
+    m_dbField->setTextData(tr("База польотів"), text + tr(" · діє після перезапуску"));
     m_dbField->setTooltip(text);
 }
 
@@ -522,14 +535,14 @@ void SettingsPage::selectDbFile()
     const QString startDir = m_dbPath.isEmpty() ? QCoreApplication::applicationDirPath()
                                                 : QFileInfo(m_dbPath).absolutePath();
     // Файл может ещё не существовать — ядро создаст базу при открытии
-    const QString path = QFileDialog::getSaveFileName(this, "Файл бази польотів", startDir + "/flights.db",
-                                                      "База SQLite (*.db *.sqlite);;Всі файли (*)",
+    const QString path = QFileDialog::getSaveFileName(this, tr("Файл бази польотів"), startDir + "/flights.db",
+                                                      tr("База SQLite (*.db *.sqlite);;Всі файли (*)"),
                                                       nullptr, QFileDialog::DontConfirmOverwrite);
     if (path.isEmpty())
         return;
     m_dbPath = path;
     updateDbFieldText();
-    NotificationManager::showInfo("Нова база польотів почне використовуватися після «Зберегти» і перезапуску програми");
+    NotificationManager::showInfo(tr("Нова база польотів почне використовуватися після «Зберегти» і перезапуску програми"));
 }
 
 // ---------------------------------------------------------------------------
@@ -538,12 +551,12 @@ void SettingsPage::selectDbFile()
 
 void SettingsPage::setupProgramFields()
 {
-    ui->mapSettingsField->setButtonText("Відкрити");
+    ui->mapSettingsField->setButtonText(tr("Відкрити"));
     updateMapFieldText();
 
     // База польотів (Р2-5, CoreSettings::dbPath) — под путём к картам
     m_dbField = new SettingsFieldButton(ui->subFrameProg);
-    m_dbField->setButtonText("Вибрати");
+    m_dbField->setButtonText(tr("Вибрати"));
     ui->subFrameProg->layout()->addWidget(createHorizontalLine());
     ui->subFrameProg->layout()->addWidget(m_dbField);
     connect(m_dbField, &SettingsFieldButton::buttonClicked, this, &SettingsPage::selectDbFile);
@@ -552,9 +565,9 @@ void SettingsPage::setupProgramFields()
 void SettingsPage::updateMapFieldText()
 {
     const QString subtext = m_mapFilePath.isEmpty()
-        ? QStringLiteral("Файл бази тайлів карти не вибрано")
+        ? tr("Файл бази тайлів карти не вибрано")
         : QDir::toNativeSeparators(m_mapFilePath);
-    ui->mapSettingsField->setTextData("Шлях до карт", subtext);
+    ui->mapSettingsField->setTextData(tr("Шлях до карт"), subtext);
     ui->mapSettingsField->setTooltip(subtext);
 }
 
@@ -562,8 +575,8 @@ void SettingsPage::selectMapFile()
 {
     const QString startDir = m_mapFilePath.isEmpty() ? QCoreApplication::applicationDirPath()
                                                      : QFileInfo(m_mapFilePath).absolutePath();
-    const QString path = QFileDialog::getOpenFileName(this, "Вибір файлу карт", startDir,
-                                                      "Файли карт (*.db *.mbtiles);;Всі файли (*)");
+    const QString path = QFileDialog::getOpenFileName(this, tr("Вибір файлу карт"), startDir,
+                                                      tr("Файли карт (*.db *.mbtiles);;Всі файли (*)"));
     if (path.isEmpty())
         return;
 
@@ -588,6 +601,22 @@ void SettingsPage::connections()
         Settings::instance().saveSettings();
         emit styleChangeRequested(themeId);
     });
+    // Мова: сохранить сразу и предложить перезапуск
+    connect(m_language, &SettingsFieldCombobox::activated, this, [this](int index) {
+        const QString lang = index == 1 ? QStringLiteral("en") : QStringLiteral("uk");
+        Settings::instance().setValue(KEY_LANGUAGE, lang);
+        Settings::instance().saveSettings();
+        if (lang == m_runningLanguage)
+            return;
+        NotificationManager::showAction(NotificationManager::Info,
+                                        tr("Мову буде змінено після перезапуску програми"), QString(),
+                                        tr("Перезапустити зараз"), [] {
+            QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                    QCoreApplication::arguments().mid(1));
+            QCoreApplication::quit();
+        });
+    });
+
     connect(ui->fontSizeMod, &SettingsFieldCombobox::currentIndexChanged, this, [this]() {
         Settings::instance().setValue(KEY_FONT_SIZE, ui->fontSizeMod->getValue());
         Settings::instance().saveSettings();
@@ -656,8 +685,8 @@ void SettingsPage::saveSettings()
     const double warn  = m_warnLevel->getValue().toDouble();
     const double alarm = m_alarmLevel->getValue().toDouble();
     if (!(warn < alarm)) {
-        NotificationManager::showError("Поріг «попередження» має бути меншим за поріг «тривога»",
-                                       "Налаштування не збережені");
+        NotificationManager::showError(tr("Поріг «попередження» має бути меншим за поріг «тривога»"),
+                                       tr("Налаштування не збережені"));
         for (QWidget *w : m_thresholds.value(deviceItem(TypeDev::BDBG)))
             w->setVisible(true);                                // раскрыть, чтобы было видно поля
         return;
@@ -702,7 +731,7 @@ void SettingsPage::saveSettings()
     emit coreSettingsChanged(coreSettings());
     emit reconDefaultsChanged(p);
 
-    NotificationManager::showInfo("Налаштування збережені");
+    NotificationManager::showInfo(tr("Налаштування збережені"));
 }
 
 void SettingsPage::updateSettings()

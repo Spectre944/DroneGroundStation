@@ -153,15 +153,15 @@ void DrawingLayer::drawCounter(QPainter &p, const QPoint &anchor)
     const int n = m_current.size();
     const bool limited = (m_mode == Mode::Polygon && m_vertexLimit > 0);
 
-    QString text = limited ? QString("Точок: %1 / %2").arg(n).arg(m_vertexLimit)
-                           : QString("Точок: %1").arg(n);
+    QString text = limited ? tr("Точок: %1 / %2").arg(n).arg(m_vertexLimit)
+                           : tr("Точок: %1").arg(n);
     QColor fg(0x2B, 0x36, 0x40), border(0, 0, 0, 50);
     if (limited && n > m_vertexLimit) {
-        text += QStringLiteral(" · забагато для розвідки");
+        text += tr(" · забагато для розвідки");
         fg = QColor(0xB4, 0x23, 0x2A);
         border = QColor(0xE5, 0x48, 0x4D);
     } else if (limited && n == m_vertexLimit) {
-        text += QStringLiteral(" · Enter — завершити");
+        text += tr(" · Enter — завершити");
         fg = QColor(0x8A, 0x5A, 0x00);
         border = QColor(0xD9, 0x96, 0x1A);
     } else if (limited && n >= m_vertexLimit - 2) {

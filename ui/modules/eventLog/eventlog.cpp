@@ -347,6 +347,11 @@ QString EventLog::eventText(const CoreEvent &e, Level *level) const
         return QStringLiteral("ID%1").arg(p.value(QStringLiteral("msgId")).toInt());
     case EventCode::UnknownId:      *level = Level::Warn;
         return tr("Невідомий ID повідомлення: %1").arg(p.value(QStringLiteral("msgId")).toInt());
+    case EventCode::BadValue:       *level = Level::Warn;
+        return tr("Недопустиме значення в ID%1: %2").arg(p.value(QStringLiteral("msgId")).toInt(), 2, 10, QLatin1Char('0'))
+                                                   .arg(p.value(QStringLiteral("field")).toString());
+    case EventCode::UnexpectedAnswer: *level = Level::Warn;
+        return tr("Відповідь ID%1 без команди — запізнилась?").arg(p.value(QStringLiteral("msgId")).toInt(), 2, 10, QLatin1Char('0'));
     case EventCode::BadLength:      *level = Level::Warn;
         return tr("Невірна довжина ID%1: %2 байт").arg(p.value(QStringLiteral("msgId")).toInt())
                                                   .arg(p.value(QStringLiteral("length")).toInt());

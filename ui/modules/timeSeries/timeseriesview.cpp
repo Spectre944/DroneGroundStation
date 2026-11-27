@@ -218,7 +218,7 @@ void TimeSeriesView::updateTitle()
     const QString muted = StatusColor::muted().name();
     if (m_showingLive) {
         const QString name = m_liveName.isEmpty() ? QString() : QStringLiteral(" «%1»").arg(m_liveName.toHtmlEscaped());
-        m_source->setText(QStringLiteral("<span style='color:%1'>%2%3 · вимірювань: %4</span>")
+        m_source->setText(tr("<span style='color:%1'>%2%3 · вимірювань: %4</span>")
                               .arg(muted, tr("поточний політ"), name).arg(m_live.size()));
     } else {
         m_source->setText(QStringLiteral("<span style='color:%1'>%2</span> <b>«%3»</b>%4")

@@ -20,7 +20,7 @@ DateDateDialog::DateDateDialog(QWidget *parent)
     dateEditTo->setCalendarPopup(true);
 
     buttonOk = new QPushButton("OK", this);
-    buttonCancel = new QPushButton("Відміна", this);
+    buttonCancel = new QPushButton(tr("Відміна"), this);
 
     connect(buttonOk, &QPushButton::clicked, this, &QDialog::accept);
     connect(buttonCancel, &QPushButton::clicked, this, &QDialog::reject);
@@ -36,15 +36,15 @@ DateDateDialog::DateDateDialog(QWidget *parent)
         emit dateDateReady(fromSeconds, toSeconds);
     });
 
-    glayout->addWidget(new QLabel("Від:", this), 0, 0);
+    glayout->addWidget(new QLabel(tr("Від:"), this), 0, 0);
     glayout->addWidget(dateEditFrom, 0, 1);
-    glayout->addWidget(new QLabel("До:", this), 1, 0);
+    glayout->addWidget(new QLabel(tr("До:"), this), 1, 0);
     glayout->addWidget(dateEditTo, 1, 1);
     glayout->addWidget(buttonOk, 2, 0);
     glayout->addWidget(buttonCancel, 2, 1);
 
     setLayout(glayout);
-    setWindowTitle("Виберіть дату");
+    setWindowTitle(tr("Виберіть дату"));
     //setModal(true);
     setWindowFlag(Qt::WindowStaysOnTopHint);
     setStyleSheet(parent->styleSheet());
@@ -60,10 +60,10 @@ AreaSearchDialog::AreaSearchDialog(QWidget *parent)
     QGridLayout *glayout = new QGridLayout(this);
 
     editCoordinates = new TextEditCoordinates(this);
-    editCoordinates->setWindowDesription("Вершини область пошуку");
+    editCoordinates->setWindowDesription(tr("Вершини область пошуку"));
 
     buttonOk = new QPushButton("OK", this);
-    buttonCancel = new QPushButton("Відміна", this);
+    buttonCancel = new QPushButton(tr("Відміна"), this);
 
     connect(buttonOk, &QPushButton::clicked, this, &QDialog::accept);
     connect(buttonCancel, &QPushButton::clicked, this, &QDialog::reject);
@@ -76,7 +76,7 @@ AreaSearchDialog::AreaSearchDialog(QWidget *parent)
     glayout->addWidget(buttonCancel, 1, 1);
 
     setLayout(glayout);
-    setWindowTitle("Виберіть площу");
+    setWindowTitle(tr("Виберіть площу"));
     //setModal(true);
     setWindowFlag(Qt::WindowStaysOnTopHint);
     setStyleSheet(parent->styleSheet());

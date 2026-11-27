@@ -77,7 +77,7 @@ void SettingsDeviceItem::setDeviceData(const DeviceData& data)
 void SettingsDeviceItem::updateErrorUI()
 {
 
-    ui->labelErrorCount->setText(QString("Помилок: %1").arg(_data->errorCount));
+    ui->labelErrorCount->setText(tr("Помилок: %1").arg(_data->errorCount));
 
     if (_data->errorCount == 0) {
         ui->labelErrorCount->setProperty("textColor", "default");
@@ -96,20 +96,20 @@ void SettingsDeviceItem::updateStatusUI()
     // Emoji for text status (alternate display) ✅ ❌ ⚠️
     if (_data->status == DeviceStatus::Active){
         ui->labelDeviceStatus->setProperty("textColor", "accept");
-        ui->labelDeviceStatus->setText(QString("%1").arg("Активний"));
+        ui->labelDeviceStatus->setText(QString("%1").arg(tr("Активний")));
         ui->labelIsActive->setPixmap(m_activeIcon);
     } else if (_data->status == DeviceStatus::Inactive){
         ui->labelDeviceStatus->setProperty("textColor", "error");
-        ui->labelDeviceStatus->setText(QString("%1").arg("Помилка"));
+        ui->labelDeviceStatus->setText(QString("%1").arg(tr("Помилка")));
         ui->labelIsActive->setPixmap(m_errorIcon);
     } else if(_data->status == DeviceStatus::Disconnected){
         ui->labelDeviceStatus->setProperty("textColor", "error");
-        ui->labelDeviceStatus->setText(QString("%1").arg("Від'єднаний"));
+        ui->labelDeviceStatus->setText(QString("%1").arg(tr("Від'єднаний")));
         ui->labelIsActive->setPixmap(m_inactiveIcon);
     }
     else {
         ui->labelDeviceStatus->setProperty("textColor", "error");
-        ui->labelDeviceStatus->setText(QString("%1").arg("Помилка"));
+        ui->labelDeviceStatus->setText(QString("%1").arg(tr("Помилка")));
         ui->labelIsActive->setPixmap(m_inactiveIcon);
     }
 
@@ -122,7 +122,7 @@ void SettingsDeviceItem::updateStatusUI()
 void SettingsDeviceItem::updateInfoUI()
 {
     ui->labelDeviceName->setText(_data->name);
-    ui->labelDevicePort->setText(QString("Порт: %1").arg(_data->port));
+    ui->labelDevicePort->setText(tr("Порт: %1").arg(_data->port));
 
 }
 
@@ -200,12 +200,12 @@ void SettingsDeviceItem::markAlive()
 QString SettingsDeviceItem::lastUpdateText(int seconds)
 {
     if (seconds < 0)
-        return QStringLiteral("немає даних");
+        return tr("немає даних");
     if (seconds < 60)
-        return QString("%1 сек. назад").arg(seconds);
+        return tr("%1 сек. назад").arg(seconds);
     if (seconds < 3600)
-        return QString("%1 хв. назад").arg(seconds / 60);
-    return QString("%1 год. назад").arg(seconds / 3600);
+        return tr("%1 хв. назад").arg(seconds / 60);
+    return tr("%1 год. назад").arg(seconds / 3600);
 }
 
 int SettingsDeviceItem::statusPriority(DeviceStatus status)

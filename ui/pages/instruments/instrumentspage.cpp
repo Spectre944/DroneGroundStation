@@ -7,14 +7,13 @@ InstrumentsPage::InstrumentsPage(QWidget *parent)
 {
     ui->setupUi(this);
 
-    auto spectrumView = new SpectrumView(this);
-    auto eventLog = new EventLog(this);
-
+    m_spectrum = new SpectrumView(this);
+    m_eventLog = new EventLog(this);
     m_timeSeries = new TimeSeriesView(this);
 
-    addInstrumentWidget(spectrumView);
+    addInstrumentWidget(m_spectrum);
     addInstrumentWidget(m_timeSeries);
-    addInstrumentWidget(eventLog);
+    addInstrumentWidget(m_eventLog);
 
 }
 
