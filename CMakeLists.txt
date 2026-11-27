@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(DroneGroundStation LANGUAGES CXX C)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat SerialPort Sql)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Core5Compat SerialPort Sql LinguistTools)
 
 qt_standard_project_setup()
 
@@ -94,6 +94,15 @@ target_link_libraries(DroneGroundStation
         Qt6::Core5Compat
         Qt6::SerialPort
         Qt6::Sql
+)
+
+# ---- Переводы интерфейса (Р2-16) ----
+# Исходный язык — украинский (тексты в tr() и .ui), перевод — английский.
+# Обновить .ts после правки текстов: цель update_translations (lupdate);
+# .qm собирается при сборке и кладётся в ресурсы — :/i18n/dronegroundstation_en.qm
+qt_add_translations(DroneGroundStation
+    TS_FILES translations/dronegroundstation_en.ts
+    RESOURCE_PREFIX "/i18n"
 )
 
 # ---- link_test: проверка DroneLink без окна (консольная программа) ----

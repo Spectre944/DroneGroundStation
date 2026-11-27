@@ -42,8 +42,8 @@ protected:
 private:
     bool    m_on = false;
     bool    m_pending = false;
-    QString m_onText = QStringLiteral("УВІМК");
-    QString m_offText = QStringLiteral("ВИМК");
+    QString m_onText = tr("УВІМК");
+    QString m_offText = tr("ВИМК");
     QColor  m_accent;
 };
 

@@ -115,10 +115,10 @@ void MainWindow::setupPages()
     leftMenu = new LeftMenu(this);
     ui->horizontalLayout->insertWidget(0, leftMenu);
 
-    addPage("Прилади",      instrumentsPage, ":/icons/svg/bs5/house.svg");
-    addPage("База даних",   databasePage,    ":/icons/svg/bs5/database.svg");
-    addPage("Розвідка",     reconPage,       ":/icons/svg/bs5/geo-alt.svg");
-    addPage("Налаштування", settingsPage,    ":/icons/svg/bs5/gear.svg", true);
+    addPage(tr("Прилади"),      instrumentsPage, ":/icons/svg/bs5/house.svg");
+    addPage(tr("База даних"),   databasePage,    ":/icons/svg/bs5/database.svg");
+    addPage(tr("Розвідка"),     reconPage,       ":/icons/svg/bs5/geo-alt.svg");
+    addPage(tr("Налаштування"), settingsPage,    ":/icons/svg/bs5/gear.svg", true);
 
     // --- связи страниц с картой ---
     connect(settingsPage, &SettingsPage::mapFileSelected, mapWidget, &MapWidget::setMapFile);
@@ -130,7 +130,7 @@ void MainWindow::setupPages()
     // Полигон с карты → фильтр «В заданій області» (без окна ввода координат)
     connect(mapWidget, &MapWidget::searchAreaSet, this, [this](const QString &area) {
         databasePage->setSearchArea(area);
-        NotificationManager::showInfo("Область пошуку встановлено — натисніть «Пошук» на сторінці «База даних»");
+        NotificationManager::showInfo(tr("Область пошуку встановлено — натисніть «Пошук» на сторінці «База даних»"));
     });
     connect(mapWidget, &MapWidget::archiveThreatClicked,  databasePage, &DatabasePage::onArchiveThreatClicked);
     connect(mapWidget, &MapWidget::centerPositionChanged, databasePage, &DatabasePage::onCenterMarkerChanged);
@@ -142,13 +142,13 @@ void MainWindow::setupMenu()
 
     // ---- «Розвідка»: команды текущему полёту ----
     // Доступность «Закінчити розвідку» — по DroneCore::allowedCommandsChanged (setupCore)
-    QMenu *flight = bar->addMenu("Розвідка");
-    actFinishRecon = flight->addAction("Закінчити розвідку");
-    actFinishRecon->setToolTip("ID08: логер закриває файл області і переходить у «Повернення»");
+    QMenu *flight = bar->addMenu(tr("Розвідка"));
+    actFinishRecon = flight->addAction(tr("Закінчити розвідку"));
+    actFinishRecon->setToolTip(tr("ID08: логер закриває файл області і переходить у «Повернення»"));
     actFinishRecon->setEnabled(false);
 
     // «Завершити політ» — то же, что кнопка на странице «Розвідка» (с её подтверждением)
-    actFinishFlight = flight->addAction("Завершити політ");
+    actFinishFlight = flight->addAction(tr("Завершити політ"));
     actFinishFlight->setEnabled(false);
     connect(actFinishFlight, &QAction::triggered, reconPage, &ReconPage::requestFinishFlight);
 
@@ -156,7 +156,7 @@ void MainWindow::setupMenu()
     flight->addSeparator();
     commandsWindow = new DroneCommandsWindow(this);
     commandsWindow->hide();
-    actCommands = flight->addAction("Команди дрону…");
+    actCommands = flight->addAction(tr("Команди дрону…"));
     actCommands->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_K));
     connect(actCommands, &QAction::triggered, this, [this] {
         commandsWindow->show();
@@ -166,14 +166,14 @@ void MainWindow::setupMenu()
 
     // Видно только при просмотре прошлого полёта — то же, что кнопка на плашке карты
     flight->addSeparator();
-    actReturnLive = flight->addAction("Повернутися до поточного польоту");
+    actReturnLive = flight->addAction(tr("Повернутися до поточного польоту"));
     actReturnLive->setVisible(false);
     connect(actReturnLive, &QAction::triggered, this, &MainWindow::returnToCurrentFlight);
 
     // ---- «Бази даних»: архив ----
-    QMenu *data = bar->addMenu("Бази даних");
-    actOpenFlight = data->addAction("Відкрити політ…");
-    actOpenFlight->setToolTip("Список польотів на сторінці «База даних»");
+    QMenu *data = bar->addMenu(tr("Бази даних"));
+    actOpenFlight = data->addAction(tr("Відкрити політ…"));
+    actOpenFlight->setToolTip(tr("Список польотів на сторінці «База даних»"));
     connect(actOpenFlight, &QAction::triggered, this, [this] {
         showPage(pageStack->indexOf(databasePage));
         databasePage->showFlights();
@@ -183,7 +183,7 @@ void MainWindow::setupMenu()
     data->addSeparator();
     sdImportWindow = new SdImport(this);
     sdImportWindow->hide();
-    actSdImport = data->addAction("Імпорт з SD-карти…");
+    actSdImport = data->addAction(tr("Імпорт з SD-карти…"));
     connect(actSdImport, &QAction::triggered, this, [this] {
         sdImportWindow->show();
         sdImportWindow->raise();
@@ -192,27 +192,27 @@ void MainWindow::setupMenu()
     // Экспорт CSV (Р2-7)
     csvExportWindow = new CsvExportWindow(this);
     csvExportWindow->hide();
-    actCsvExport = data->addAction("Експорт у CSV…");
+    actCsvExport = data->addAction(tr("Експорт у CSV…"));
     connect(actCsvExport, &QAction::triggered, this, [this] { csvExportWindow->open(); });
 
     // ---- «Вигляд»: страницы (те же действия, что в левом меню) ----
-    QMenu *view = bar->addMenu("Вигляд");
+    QMenu *view = bar->addMenu(tr("Вигляд"));
     for (const Page &page : std::as_const(pages))
         view->addAction(page.action);
     view->addSeparator();
-    actCollapse = view->addAction("Згорнути панель");
+    actCollapse = view->addAction(tr("Згорнути панель"));
     actCollapse->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
     connect(actCollapse, &QAction::triggered, this, &MainWindow::hidePages);
 
     // ---- «Довідка» ----
-    QMenu *help = bar->addMenu("Довідка");
-    help->addAction("Про програму", this, [this] {
-        QString text = QStringLiteral("<b>Наземне ПО «ДРОН-1»</b><br>"
-                                      "Оператор радіаційної розвідки<br><br>");
+    QMenu *help = bar->addMenu(tr("Довідка"));
+    help->addAction(tr("Про програму"), this, [this] {
+        QString text = tr("<b>Наземне ПО «ДРОН-1»</b><br>"
+                         "Оператор радіаційної розвідки<br><br>");
         if (!QCoreApplication::applicationVersion().isEmpty())
-            text += QStringLiteral("Версія: %1<br>").arg(QCoreApplication::applicationVersion());
-        text += QStringLiteral("Збірка: %1<br>Qt %2").arg(QStringLiteral(__DATE__), QString::fromLatin1(qVersion()));
-        QMessageBox::about(this, "Про програму", text);
+            text += tr("Версія: %1<br>").arg(QCoreApplication::applicationVersion());
+        text += tr("Збірка: %1<br>Qt %2").arg(QStringLiteral(__DATE__), QString::fromLatin1(qVersion()));
+        QMessageBox::about(this, tr("Про програму"), text);
     });
 
     indicatorPanel = new IndicatorPanel(bar);
@@ -341,9 +341,9 @@ void MainWindow::setupCore()
         updateFinish();
     });
     connect(actFinishRecon, &QAction::triggered, this, [this, updateFinish] {
-        const auto answer = QMessageBox::question(this, "Закінчити розвідку",
-            "Логер закриє файл поточної області, зупинить вимірювання і перейде в режим «Повернення».\n\n"
-            "Закінчити розвідку?");
+        const auto answer = QMessageBox::question(this, tr("Закінчити розвідку"),
+            tr("Логер закриє файл поточної області, зупинить вимірювання і перейде в режим «Повернення».\n\n"
+               "Закінчити розвідку?"));
         if (answer != QMessageBox::Yes)
             return;
         CommandRequest r;
@@ -361,14 +361,14 @@ void MainWindow::setupCore()
             return;
         if (o.result == CommandResult::Done) {
             mapWidget->clearActiveReconArea();
-            NotificationManager::showSuccess("Логер перейшов у режим «Повернення»", "Розвідку закінчено");
+            NotificationManager::showSuccess(tr("Логер перейшов у режим «Повернення»"), tr("Розвідку закінчено"));
         }
         const bool ours = finishReconSeq != 0 &&
                           (o.request.seq == finishReconSeq || finishReconSeq == std::numeric_limits<quint32>::max());
         if (!ours)
             return updateFinish();
         if (o.result != CommandResult::Done)
-            NotificationManager::showError(CoreTexts::outcome(o), "Розвідку не закінчено");
+            NotificationManager::showError(CoreTexts::outcome(o), tr("Розвідку не закінчено"));
         finishReconSeq = 0;
         updateFinish();
     });
@@ -472,12 +472,12 @@ void MainWindow::setupCore()
         } else if (owner == ExportOwner::Quick) {
             if (ok)
                 NotificationManager::showAction(NotificationManager::Success,
-                                                QDir::toNativeSeparators(path), "Експорт CSV — збережено",
-                                                "Відкрити папку", [path] {
+                                                QDir::toNativeSeparators(path), tr("Експорт CSV — збережено"),
+                                                tr("Відкрити папку"), [path] {
                                                     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
                                                 });
             else
-                NotificationManager::showError(path, "Експорт CSV — помилка");
+                NotificationManager::showError(path, tr("Експорт CSV — помилка"));
         }
     });
 
@@ -494,7 +494,7 @@ void MainWindow::setupCore()
         if (!list.isEmpty())
             openFlight(list.first().id);                    // ядро даёт новые сверху
         else
-            NotificationManager::showWarning("У базі ще немає польотів");
+            NotificationManager::showWarning(tr("У базі ще немає польотів"));
     });
     connect(core, &DroneCore::sessionStarted, this, [this](const SessionInfo &info) {
         currentSession = info;
@@ -536,8 +536,8 @@ void MainWindow::setupCore()
     if (port == QLatin1String("STUB") || core->availablePorts().contains(port))
         core->openPort(port);
     else if (!port.isEmpty())
-        NotificationManager::showWarning(QString("Порт %1 не знайдено. Виберіть порт: Налаштування → Радіомодем.").arg(port),
-                                         "Радіомодем не підключено");
+        NotificationManager::showWarning(tr("Порт %1 не знайдено. Виберіть порт: Налаштування → Радіомодем.").arg(port),
+                                         tr("Радіомодем не підключено"));
 }
 
 // ---------------------------------------------------------------------------
@@ -636,7 +636,7 @@ void MainWindow::saveSplitter()
 void MainWindow::quickExport(qint64 sessionId)
 {
     if (exportOwner != ExportOwner::None || csvExportWindow->isBusy()) {
-        NotificationManager::showWarning("Зачекайте — триває попередній експорт");
+        NotificationManager::showWarning(tr("Зачекайте — триває попередній експорт"));
         return;
     }
     exportOwner = ExportOwner::Quick;
@@ -669,7 +669,7 @@ void MainWindow::applySessionView(const SessionData &d)
     reconPage->setReadOnly(true);
     commandsWindow->setReadOnly(true);
     updateFlightActions();
-    NotificationManager::showInfo(QString("Перегляд польоту «%1»").arg(d.info.name));
+    NotificationManager::showInfo(tr("Перегляд польоту «%1»").arg(d.info.name));
 }
 
 /**

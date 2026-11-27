@@ -24,9 +24,9 @@ void TextEditCoordinates::setCoordinatesMode(CoordinatesMode mode)
     _mode = mode;
     QString iconPath;
     switch (mode) {
-        case CoordinatesMode::Area:     m_label->setText("Вершини області");            iconPath = ":/icons/svg/custom/ReconAreaMode.svg";    break;
-        case CoordinatesMode::Route:    m_label->setText("Точки маршруту");             iconPath = ":/icons/svg/custom/ReconWayMode_2.svg";   break;
-        case CoordinatesMode::Other:    m_label->setText("Вершини області зараження");  iconPath = ":/icons/svg/custom/ReconAreaMode.svg";    break;
+        case CoordinatesMode::Area:     m_label->setText(tr("Вершини області"));            iconPath = ":/icons/svg/custom/ReconAreaMode.svg";    break;
+        case CoordinatesMode::Route:    m_label->setText(tr("Точки маршруту"));             iconPath = ":/icons/svg/custom/ReconWayMode_2.svg";   break;
+        case CoordinatesMode::Other:    m_label->setText(tr("Вершини області зараження"));  iconPath = ":/icons/svg/custom/ReconAreaMode.svg";    break;
         default: break;
     }
 
@@ -87,8 +87,8 @@ void TextEditCoordinates::requestCoordinates()
 void TextEditCoordinates::setPicking(bool on)
 {
     m_pushButton->setChecked(on);
-    m_pushButton->setToolTip(on ? "Малюйте на карті. Enter / ПКМ - завершити, Esc - скасувати"
-                                : "Вибрати на карті");
+    m_pushButton->setToolTip(on ? tr("Малюйте на карті. Enter / ПКМ - завершити, Esc - скасувати")
+                                : tr("Вибрати на карті"));
 }
 
 void TextEditCoordinates::setCoordinatesFromMap(QVector<smappoint> coordinates)
@@ -132,7 +132,7 @@ void TextEditCoordinates::setupUI()
     m_pushButton->setIcon(IconHelper::createThemedIcon(":/icons/svg/custom/ReconAreaMode.svg"));
     m_pushButton->setIconSize(QSize(25, 25));
     m_pushButton->setCheckable(true);   // нажата, пока идёт выбор на карте
-    m_pushButton->setToolTip("Вибрати на карті");
+    m_pushButton->setToolTip(tr("Вибрати на карті"));
     m_pushButton->setFixedSize(QSize(StyleConstants::textEditControlHeight, StyleConstants::textEditControlHeight));
     //m_pushButton->setFixedWidth(40);
 
@@ -140,7 +140,7 @@ void TextEditCoordinates::setupUI()
     m_warningLabel->setScaledContents(true);
     m_warningLabel->setPixmap(warningSign);
     m_warningLabel->setFixedSize(StyleConstants::textEditIconSize, StyleConstants::textEditIconSize);
-    m_warningLabel->setToolTip("Помилка: Невалідний формат координат");
+    m_warningLabel->setToolTip(tr("Помилка: Невалідний формат координат"));
     m_warningLabel->setSizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Preferred);
     //m_warningLabel->hide(); // Скрываем по умолчанию
 
@@ -178,7 +178,7 @@ void TextEditCoordinates::fillData()
     m_comboBox->addItem("DMS");
     // m_comboBox->addItem("CK42"); // Disable, has problem with converation
 
-    m_label->setText("Вершини області зараження");
+    m_label->setText(tr("Вершини області зараження"));
 
 }
 
@@ -274,7 +274,7 @@ void TextEditCoordinates::convertCoordinates()
         m_coordinatesValid = true;
         setValidationError("");
     } else {
-        setValidationError("Невалідний формат координат");
+        setValidationError(tr("Невалідний формат координат"));
         m_coordinatesValid = false;
         m_coordinatesCount = 0;
     }
@@ -321,7 +321,7 @@ void TextEditAutofill::setupUI()
     m_textEdit->setTabChangesFocus(true);
     m_pushButtonAutofill->setFlat(true);
     m_pushButtonAutofill->setFocusPolicy(Qt::FocusPolicy::TabFocus);
-    m_pushButtonAutofill->setToolTip("Заповнити автоматично");
+    m_pushButtonAutofill->setToolTip(tr("Заповнити автоматично"));
 
     // Пример layout — простой, только для размещения QTextEdit
     auto *layout = new QVBoxLayout(this);

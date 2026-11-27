@@ -1,15 +1,16 @@
 #include "utilities.h"
+#include <QCoreApplication>
 
 
 QString RadiationUtils::formatDoseRate(double der)
 {
     // Возвращает текстовое значение мощности дозы
     if (der < 1000.0) {
-        return QString::number(der, 'f', 2) + " мкЗв/год";
+        return QString::number(der, 'f', 2) + QCoreApplication::translate("Utilities", " мкЗв/год");
     } else if (der < 1000000.0) {
-        return QString::number(der / 1000.0, 'f', 2) + " мЗв/год";
+        return QString::number(der / 1000.0, 'f', 2) + QCoreApplication::translate("Utilities", " мЗв/год");
     } else {
-        return QString::number(der / 1000000.0, 'f', 2) + " Зв/год";
+        return QString::number(der / 1000000.0, 'f', 2) + QCoreApplication::translate("Utilities", " Зв/год");
     }
 }
 
@@ -17,39 +18,39 @@ QString RadiationUtils::formatDoseValue(double der)
 {
     // Возвращает текстовое значение дозы
     if (der < 1000.0) {
-        return QString::number(der, 'f', 2) + " мкЗв";
+        return QString::number(der, 'f', 2) + QCoreApplication::translate("Utilities", " мкЗв");
     } else if (der < 1000000.0) {
-        return QString::number(der / 1000.0, 'f', 2) + " мЗв";
+        return QString::number(der / 1000.0, 'f', 2) + QCoreApplication::translate("Utilities", " мЗв");
     } else {
-        return QString::number(der / 1000000.0, 'f', 2) + " Зв";
+        return QString::number(der / 1000000.0, 'f', 2) + QCoreApplication::translate("Utilities", " Зв");
     }
 }
 
 QString TimeUtils::formatSeconds(int seconds)
 {
     if (seconds < 60) {
-        return QString("%1 сек. назад").arg(seconds);
+        return QCoreApplication::translate("Utilities", "%1 сек. назад").arg(seconds);
     } else {
         int minutes = seconds / 60;
-        return QString("%1 хв. назад").arg(minutes);
+        return QCoreApplication::translate("Utilities", "%1 хв. назад").arg(minutes);
     }
 }
 
 QString TimeUtils::formatTimeValue(int seconds)
 {
     if (seconds < 60) {
-        return QString("%1 сек.").arg(seconds);
+        return QCoreApplication::translate("Utilities", "%1 сек.").arg(seconds);
     } else if (seconds < 3600) {
         int minutes = seconds / 60;
-        return QString("%1 хв.").arg(minutes);
+        return QCoreApplication::translate("Utilities", "%1 хв.").arg(minutes);
     } else {
         int hours = seconds / 3600;
         int remainingMinutes = (seconds % 3600) / 60;
 
         if (remainingMinutes > 0) {
-            return QString("%1 год. %2 хв.").arg(hours).arg(remainingMinutes);
+            return QCoreApplication::translate("Utilities", "%1 год. %2 хв.").arg(hours).arg(remainingMinutes);
         } else {
-            return QString("%1 год.").arg(hours);
+            return QCoreApplication::translate("Utilities", "%1 год.").arg(hours);
         }
     }
 }

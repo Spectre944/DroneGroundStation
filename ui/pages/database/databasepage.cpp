@@ -1,4 +1,5 @@
 #include "databasepage.h"
+#include <QCoreApplication>
 #include "ui_databasepage.h"
 
 #include <QMenu>
@@ -10,16 +11,16 @@ namespace {
 
 QString pointTypeText(quint32 t)
 {
-    if (t & ApAlarm)    return QStringLiteral("тривога");
-    if (t & ApWarn)     return QStringLiteral("попередження");
-    if (t & ApSpectrum) return QStringLiteral("спектр");
-    return QStringLiteral("вимірювання");
+    if (t & ApAlarm)    return QCoreApplication::translate("DatabasePage", "тривога");
+    if (t & ApWarn)     return QCoreApplication::translate("DatabasePage", "попередження");
+    if (t & ApSpectrum) return QCoreApplication::translate("DatabasePage", "спектр");
+    return QCoreApplication::translate("DatabasePage", "вимірювання");
 }
 
 QString durationText(const QDateTime &a, const QDateTime &b)
 {
     if (!a.isValid() || !b.isValid())
-        return QStringLiteral("триває");
+        return QCoreApplication::translate("DatabasePage", "триває");
     const qint64 s = a.secsTo(b);
     return QStringLiteral("%1:%2").arg(s / 3600).arg((s / 60) % 60, 2, 10, QLatin1Char('0'));
 }
@@ -42,7 +43,7 @@ DatabasePage::~DatabasePage()
 
 void DatabasePage::setupUI()
 {
-    ui->tableControl->setTableName("База даних");
+    ui->tableControl->setTableName(tr("База даних"));
     ui->tableControl->setIcon(QPixmap(":/icons/png/old/databaseColor.png"));
     ui->tableControl->setNavigatorBtnVisible(true);    // переход к разделу «Польоти» / «Точки»
 
@@ -59,7 +60,7 @@ void DatabasePage::setupUI()
     view->setEditTriggers(QAbstractItemView::NoEditTriggers);
     view->setContextMenuPolicy(Qt::CustomContextMenu);
     view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    view->setToolTip(QStringLiteral("Політ: подвійний клік або ПКМ → «Переглянути політ»"));
+    view->setToolTip(tr("Політ: подвійний клік або ПКМ → «Переглянути політ»"));
     ui->tableLayout->addWidget(view, 1);
 
     // Панель поиска - по высоте содержимого, всё остальное место - таблице
@@ -96,7 +97,7 @@ void DatabasePage::connections()
             });
         }
         if (menu.isEmpty())
-            menu.addAction(QStringLiteral("Немає результатів"))->setEnabled(false);
+            menu.addAction(tr("Немає результатів"))->setEnabled(false);
         QWidget *btn = ui->tableControl->getWidget(TableControl::WidgetType::Navigator);
         menu.exec(btn ? btn->mapToGlobal(QPoint(0, btn->height())) : QCursor::pos());
     });
@@ -245,9 +246,9 @@ void DatabasePage::rebuildTable()
         for (const SessionInfo &s : std::as_const(m_flights))
             rows.append(flightRow(s, s.id == m_currentSession));
         if (rows.isEmpty())
-            rows.append({QString(), m_waitFlights ? QStringLiteral("Завантаження…") : QStringLiteral("Польотів не знайдено")});
+            rows.append({QString(), m_waitFlights ? tr("Завантаження…") : tr("Польотів не знайдено")});
         m_flightSection = model->getSections().size();
-        model->addSection("Польоти", flightHeaders(), rows, tint(0.06));
+        model->addSection(tr("Польоти"), flightHeaders(), rows, tint(0.06));
     }
 
     if (m_showPoints) {
@@ -255,19 +256,19 @@ void DatabasePage::rebuildTable()
         rows.reserve(m_points.size());
         for (const ArchivePoint &p : std::as_const(m_points)) {
             const QDateTime t = p.time.toLocalTime();
-            const QString params = QStringLiteral("Координати\nш: %1\nд: %2\n\nЧас:  %3\nДата: %4")
+            const QString params = tr("Координати\nш: %1\nд: %2\n\nЧас:  %3\nДата: %4")
                                        .arg(p.lat, 0, 'f', 4).arg(p.lon, 0, 'f', 4)
                                        .arg(t.toString("HH:mm:ss"), t.toString("dd.MM.yyyy"));
-            const QString data = QStringLiteral("ПАЕД: .... %1 мкЗв/г\nТип: ..... %2\nПоліт: ... №%3")
+            const QString data = tr("ПАЕД: .... %1 мкЗв/г\nТип: ..... %2\nПоліт: ... №%3")
                                      .arg(QString::number(double(p.paed), 'f', p.paed < 10 ? 2 : 1),
                                           pointTypeText(p.type))
                                      .arg(p.sessionId);
             rows.append({p.id, params, data});
         }
         if (rows.isEmpty())
-            rows.append({QString(), QStringLiteral("Точок не знайдено")});
+            rows.append({QString(), tr("Точок не знайдено")});
         m_pointSection = model->getSections().size();
-        model->addSection("Точки", {"ID", "Параметри", "Радіація"}, rows, tint(0.12));
+        model->addSection(tr("Точки"), {"ID", tr("Параметри"), tr("Радіація")}, rows, tint(0.12));
     }
 
     view->resizeColumnsToContents();
@@ -281,21 +282,21 @@ void DatabasePage::rebuildTable()
 QVector<QVariant> DatabasePage::flightRow(const SessionInfo &s, bool current)
 {
     const QDateTime st = s.startTime.toLocalTime();
-    const QString params = QStringLiteral("Назва\n%1\n\nЧас:  %2\nДата: %3")
+    const QString params = tr("Назва\n%1\n\nЧас:  %2\nДата: %3")
                                .arg(s.name, st.toString("HH:mm:ss"), st.toString("dd.MM.yyyy"));
-    const QString data = QStringLiteral("Тривалість: .. %1\nВимірювань: .. %2\nSD-карта: .... %3\nСтан: ........ %4")
+    const QString data = tr("Тривалість: .. %1\nВимірювань: .. %2\nSD-карта: .... %3\nСтан: ........ %4")
                              .arg(durationText(s.startTime, s.endTime))
                              .arg(s.measurementCount)
-                             .arg(s.noSd ? QStringLiteral("без SD") : QStringLiteral("так"),
-                                  current                ? QStringLiteral("поточний")
-                                  : s.endTime.isValid()  ? QStringLiteral("завершено")
-                                                         : QStringLiteral("не завершено"));
+                             .arg(s.noSd ? tr("без SD") : tr("так"),
+                                  current                ? tr("поточний")
+                                  : s.endTime.isValid()  ? tr("завершено")
+                                                         : tr("не завершено"));
     return {s.id, params, data};
 }
 
 QStringList DatabasePage::flightHeaders()
 {
-    return {"ID", "Параметри", "Дані польоту"};
+    return {"ID", tr("Параметри"), tr("Дані польоту")};
 }
 
 QPair<int, int> DatabasePage::locate(int row) const
@@ -324,18 +325,18 @@ void DatabasePage::showContextMenu(const QPoint &pos)
     QMenu menu(this);
     if (at.first == 1) {
         const SessionInfo s = m_flights[at.second];
-        menu.addAction(QStringLiteral("Переглянути політ «%1»").arg(s.name), this,
+        menu.addAction(tr("Переглянути політ «%1»").arg(s.name), this,
                        [this, s] { emit openFlightRequested(s.id); });
         // Экспорт CSV (Р2-7): быстрый — все части в папку export рядом с программой;
         // окно — выбор частей и папки
         menu.addSeparator();
-        menu.addAction(QStringLiteral("Експортувати в CSV"), this, [this, s] { emit quickExportRequested(s.id); });
-        menu.addAction(QStringLiteral("Експорт у CSV…"), this, [this, s] { emit exportWindowRequested(s.id); });
+        menu.addAction(tr("Експортувати в CSV"), this, [this, s] { emit quickExportRequested(s.id); });
+        menu.addAction(tr("Експорт у CSV…"), this, [this, s] { emit exportWindowRequested(s.id); });
     } else if (at.first == 2) {
         const int i = at.second;
-        menu.addAction(QStringLiteral("Показати на карті"), this, [this, i] { emit archiveTableThreatClicked(i); });
+        menu.addAction(tr("Показати на карті"), this, [this, i] { emit archiveTableThreatClicked(i); });
         const qint64 sid = m_points[i].sessionId;
-        menu.addAction(QStringLiteral("Переглянути політ №%1").arg(sid), this, [this, sid] { emit openFlightRequested(sid); });
+        menu.addAction(tr("Переглянути політ №%1").arg(sid), this, [this, sid] { emit openFlightRequested(sid); });
     }
     if (!menu.isEmpty())
         menu.exec(view->viewport()->mapToGlobal(pos));
@@ -407,5 +408,5 @@ void DatabasePage::onArchiveThreatClicked(int index)
 void DatabasePage::onArchiveDBOpened(QString name)
 {
     if (!name.isEmpty())
-        ui->tableControl->setTableName(QString("База даних %1").arg(name));
+        ui->tableControl->setTableName(tr("База даних %1").arg(name));
 }

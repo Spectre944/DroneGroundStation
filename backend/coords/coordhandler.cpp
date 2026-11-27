@@ -782,7 +782,7 @@ QPair<bool, QString> CoordHandler::Wgs84P_to_Wgs84S(const QPair<double, double> 
 
     CoordHandler local;
     if(!local.parse_wgs_pair(pair))
-        return qMakePair(false, QString("Невірний формат координати WGS84(пара)"));
+        return qMakePair(false, tr("Невірний формат координати WGS84(пара)"));
 
     return qMakePair(true, QString("WGS84:%1,%2").arg(local.format_coord(pair.first)).arg(local.format_coord(pair.second)));
 }
@@ -811,7 +811,7 @@ QPair<bool, QString> CoordHandler::Wgs84P_to_MGRS(const QPair<double, double> &p
 {
     CoordHandler local;
     if(!local.parse_wgs_pair(pair))
-        return qMakePair(false, QString("Невірний формат координати WGS84(пара)"));
+        return qMakePair(false, tr("Невірний формат координати WGS84(пара)"));
 
     double latitude =  pair.first;               // Широта
     double longitude = pair.second;             // Долгота
@@ -837,7 +837,7 @@ QPair<bool, QString> CoordHandler::Wgs84P_to_UTM(const QPair<double, double> &pa
 {
     CoordHandler local;
     if(!local.parse_wgs_pair(pair))
-        return qMakePair(false, QString("Невірний формат координати WGS84(пара)"));
+        return qMakePair(false, tr("Невірний формат координати WGS84(пара)"));
 
     double latitude =  pair.first;               // Широта
     double longitude = pair.second;             // Долгота
@@ -871,7 +871,7 @@ QPair<bool, QString> CoordHandler::Wgs84P_to_DMS(const QPair<double, double> &pa
 {
     CoordHandler local;
     if(!local.parse_wgs_pair(pair))
-        return qMakePair(false, QString("Невірний формат координати WGS84(пара)"));
+        return qMakePair(false, tr("Невірний формат координати WGS84(пара)"));
 
     // Лямбда-функция для преобразования координаты в формат DMS
     auto toDMS = [](double coord) -> QString {
@@ -911,7 +911,7 @@ QPair<bool, QString> CoordHandler::Wgs84P_to_CK42(const QPair<double, double> &p
 {
     CoordHandler local;
     if(!local.parse_wgs_pair(pair))
-        return qMakePair(false, QString("Невірний формат координати WGS84(пара)"));
+        return qMakePair(false, tr("Невірний формат координати WGS84(пара)"));
 
     SK42Rectangle __struct = local.wgs_pair_to_sk42_rectangle(pair);
     QString res = local.convert_ck42pair_to_ck42str(qMakePair(__struct.x, __struct.y));

@@ -213,7 +213,7 @@ void SettingsFieldSpinBox::setTextUnits(const QString &text)
 void SettingsFieldSpinBox::setDataRange(int min, int max)
 {
     spinbox->setRange(min, max);
-    spinbox->setToolTip(QString("Мінімальне значення: %1\nМаксимальне значення: %2").arg(min).arg(max));
+    spinbox->setToolTip(tr("Мінімальне значення: %1\nМаксимальне значення: %2").arg(min).arg(max));
 }
 
 void SettingsFieldSpinBox::setSpecialValueText(const QString &text)
@@ -295,7 +295,7 @@ void SettingsFieldDoubleSpinBox::setTextUnits(const QString &text)
 void SettingsFieldDoubleSpinBox::setDataRange(double min, double max)
 {
     doubleSpinbox->setRange(min, max);
-    doubleSpinbox->setToolTip(QString("Мінімальне значення: %1\nМаксимальне значення: %2").arg(min).arg(max));
+    doubleSpinbox->setToolTip(tr("Мінімальне значення: %1\nМаксимальне значення: %2").arg(min).arg(max));
 }
 
 void SettingsFieldDoubleSpinBox::setDecimals(int decimals)

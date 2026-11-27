@@ -59,15 +59,15 @@ LineEditButton::LineEditButton(QWidget *parent)
     actionButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     this->setLayout(layout);
 
-    QAction *autoFillAction = new QAction("Автозаполнение", this);
-    QAction *manualInputAction = new QAction("Ручной ввод", this);
+    QAction *autoFillAction = new QAction(tr("Автозаполнение"), this);
+    QAction *manualInputAction = new QAction(tr("Ручной ввод"), this);
     QAction *check = new QAction("Check", this);
     check->setCheckable(true);
 
     connect(autoFillAction, &QAction::triggered, this, &LineEditButton::onAutoFillSelected);
     connect(manualInputAction, &QAction::triggered, this, &LineEditButton::onManualInputSelected);
 
-    menu->addSection("Автозаповнення");
+    menu->addSection(tr("Автозаповнення"));
     menu->addAction(autoFillAction);
     menu->addAction(manualInputAction);
     menu->addAction(check);
@@ -81,12 +81,12 @@ void LineEditButton::onActionButtonClicked() {
 
 void LineEditButton::onAutoFillSelected() {
     // Логика для автозаполнения
-    lineEdit->setText("Автозаполнение выполнено");
+    lineEdit->setText(tr("Автозаполнение выполнено"));
 }
 
 void LineEditButton::onManualInputSelected() {
     // Логика для ручного ввода
-    lineEdit->setText("Ручной ввод выбран");
+    lineEdit->setText(tr("Ручной ввод выбран"));
 }
 
 //--------------------------------------------------------------------//
@@ -173,7 +173,7 @@ void LineEditCoordinates::setupUI()
     m_warningLabel->setScaledContents(true);
     m_warningLabel->setPixmap(warningSign);
     m_warningLabel->setFixedSize(StyleConstants::textEditIconSize, StyleConstants::textEditIconSize);
-    m_warningLabel->setToolTip("Помилка: Невалідний формат координат");
+    m_warningLabel->setToolTip(tr("Помилка: Невалідний формат координат"));
     m_warningLabel->setSizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Preferred);
     //m_warningLabel->hide(); // Скрываем по умолчанию
 
@@ -192,7 +192,7 @@ void LineEditCoordinates::setupUI()
 
 void LineEditCoordinates::fillData()
 {
-    m_Menu->addAction("Автоаповнити координати");
+    m_Menu->addAction(tr("Автоаповнити координати"));
 
     m_comboBox->addItem("WGS84");
     m_comboBox->addItem("MGRS");
@@ -220,7 +220,7 @@ void LineEditCoordinates::convertCoordinates()
         m_lineEdit->setText(result.second);
         setValidationError("");
     } else {
-        setValidationError("Невалідний формат координат");
+        setValidationError(tr("Невалідний формат координат"));
     }
 }
 
@@ -255,7 +255,7 @@ void LineEditAutofill::setupUI()
     m_lineEdit->setMinimumHeight(StyleConstants::lineEditControlHeight);
     m_pushButtonAutofill->setFlat(true);
     m_pushButtonAutofill->setFocusPolicy(Qt::FocusPolicy::TabFocus);
-    m_pushButtonAutofill->setToolTip("Заповнити автоматично");
+    m_pushButtonAutofill->setToolTip(tr("Заповнити автоматично"));
 
     // Пример layout — простой, только для размещения QTextEdit
     auto *layout = new QVBoxLayout(this);

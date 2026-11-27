@@ -23,9 +23,9 @@ void SearchBar::setupUI()
 {
     //-------------------------------------------------------------------------//
 
-    radType = new QAction("Радіація", this);
-    bioType = new QAction("Біологія", this);
-    chemType = new QAction("Хімія", this);
+    radType = new QAction(tr("Радіація"), this);
+    bioType = new QAction(tr("Біологія"), this);
+    chemType = new QAction(tr("Хімія"), this);
 
     radType->setCheckable(true);
     bioType->setCheckable(true);
@@ -40,19 +40,19 @@ void SearchBar::setupUI()
     typeActionList << chemType;
 
     ui->pushButtonType->addActions(typeActionList);
-    ui->pushButtonType->setInitialText("Тип загроз");
+    ui->pushButtonType->setInitialText(tr("Тип загроз"));
     // Сейчас меряется только радиация - фильтр по типу угрозы не нужен
     ui->pushButtonType->hide();
 
     //-------------------------------------------------------------------------//
 
-    ui->pushButtonFlag->setInitialText("Тип даних");
+    ui->pushButtonFlag->setInitialText(tr("Тип даних"));
 
     // Пока сохраняются только точки; остальные типы (флаги, маршрути, об'єкти,
     // зразки, області) вернуть сюда, когда появятся в БД
-    pointFlag = new QAction("Точки", this);
+    pointFlag = new QAction(tr("Точки"), this);
     pointFlag->setCheckable(true);
-    flightFlag = new QAction("Польоти", this);      // Р2-2: список полётов с просмотром
+    flightFlag = new QAction(tr("Польоти"), this);      // Р2-2: список полётов с просмотром
     flightFlag->setCheckable(true);
 
     QList<QAction*> flagActionList;
@@ -62,15 +62,15 @@ void SearchBar::setupUI()
 
     //-------------------------------------------------------------------------//
     ui->pushButtonDate->setButtonType(DropdownButtonType::SINGLE);
-    ui->pushButtonDate->setInitialText("Час пошуку");
+    ui->pushButtonDate->setInitialText(tr("Час пошуку"));
 
-    allTime = new QAction("За весь час");
-    lastHour = new QAction("За останню годину");
-    lastDay = new QAction("За останній день");
-    lastWeek = new QAction("За останній тиждень");
-    lastMonth = new QAction("За останній місяць");
-    lastYear = new QAction("За останній рік");
-    lastOptional = new QAction("За період...");
+    allTime = new QAction(tr("За весь час"));
+    lastHour = new QAction(tr("За останню годину"));
+    lastDay = new QAction(tr("За останній день"));
+    lastWeek = new QAction(tr("За останній тиждень"));
+    lastMonth = new QAction(tr("За останній місяць"));
+    lastYear = new QAction(tr("За останній рік"));
+    lastOptional = new QAction(tr("За період..."));
 
     QList<QAction*> dateSearch;
     dateSearch << allTime << lastHour << lastDay << lastWeek << lastMonth << lastYear << lastOptional;
@@ -80,27 +80,27 @@ void SearchBar::setupUI()
     //-------------------------------------------------------------------------//
 
     ui->pushButtonSquare->setButtonType(DropdownButtonType::SINGLE);
-    ui->pushButtonSquare->setInitialText("Площа пошуку");
+    ui->pushButtonSquare->setInitialText(tr("Площа пошуку"));
 
-    areaAll = new QAction("На всій площі");
-    area1km = new QAction("В радіусі 1 км");
-    area10km = new QAction("В радіусі 10 км");
-    area50km = new QAction("В радіусі 50 км");
-    area100km = new QAction("В радіусі 100 км");
-    area500km = new QAction("В радіусі 500 км");
-    areaOptional = new QAction("В заданій області...");
+    areaAll = new QAction(tr("На всій площі"));
+    area1km = new QAction(tr("В радіусі 1 км"));
+    area10km = new QAction(tr("В радіусі 10 км"));
+    area50km = new QAction(tr("В радіусі 50 км"));
+    area100km = new QAction(tr("В радіусі 100 км"));
+    area500km = new QAction(tr("В радіусі 500 км"));
+    areaOptional = new QAction(tr("В заданій області..."));
 
     QList<QAction*> squareSearch;
     squareSearch << areaAll << area1km << area10km << area50km << area100km << area500km <<  areaOptional;
     ui->pushButtonSquare->addActions(squareSearch);
 
     //-------------------------------------------------------------------------//
-    ui->pushButtonOptions->setInitialText("Опції");
+    ui->pushButtonOptions->setInitialText(tr("Опції"));
 
-    sortByTimeNewFirst = new QAction("Сортувати по часу ↓ (нові спочатку)", this);
-    sortByTimeOldFirst = new QAction("Сортувати по часу ↑ (старі спочатку)", this);
+    sortByTimeNewFirst = new QAction(tr("Сортувати по часу ↓ (нові спочатку)"), this);
+    sortByTimeOldFirst = new QAction(tr("Сортувати по часу ↑ (старі спочатку)"), this);
     // sortByDistance     = new QAction("Сортувати по відстані ↑ (ближні спочатку)", this);
-    sortByRadiation    = new QAction("Сортувати по концентрації радіації ↓ (великі спочатку)", this);
+    sortByRadiation    = new QAction(tr("Сортувати по концентрації радіації ↓ (великі спочатку)"), this);
 
     sortByTimeNewFirst->setCheckable(true);
     sortByTimeOldFirst->setCheckable(true);

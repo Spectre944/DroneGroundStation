@@ -182,7 +182,7 @@ SimpleTableModel::SimpleTableModel(QObject *parent)
     : QAbstractTableModel(parent)
 {
     // Инициализация заголовков (пример)
-    horizontalHeaders << "СВНГ-Т" << "СРХБР-Т" << "ChemPro" << "AirMar" << "Параметри" << "Збереження";
+    horizontalHeaders << tr("СВНГ-Т") << tr("СРХБР-Т") << "ChemPro" << "AirMar" << tr("Параметри") << tr("Збереження");
 }
 
 int SimpleTableModel::rowCount(const QModelIndex &parent) const
@@ -324,7 +324,7 @@ void TableNavigator::setupUI()
     setWindowFlags(Qt::Window);
     setGeometry(100, 100, 200, 200);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    setWindowTitle("Навігація по таблиці");
+    setWindowTitle(tr("Навігація по таблиці"));
 
     layout = new QVBoxLayout(this);
     layout->setSpacing(2);

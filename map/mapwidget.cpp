@@ -231,11 +231,11 @@ void GeometryLayer::refreshSummary()
 
     // Выделена активная область (её нет в GeometryStore — только вершины от логера)
     if (m_activeSelected && m_active.size() >= 3) {
-        m_summary.title = QStringLiteral("Активна область розвідки");
+        m_summary.title = tr("Активна область розвідки");
         m_summary.lines << reconStatusLines(nullptr)
-                        << QString("Площа: %1 км²").arg(mapgeo::areaKm2(m_active), 0, 'f', 2)
-                        << QString("Периметр: %1 км").arg(mapgeo::lengthM(m_active, true) / 1000.0, 0, 'f', 2)
-                        << QString("Точок: %1").arg(m_active.size());
+                        << tr("Площа: %1 км²").arg(mapgeo::areaKm2(m_active), 0, 'f', 2)
+                        << tr("Периметр: %1 км").arg(mapgeo::lengthM(m_active, true) / 1000.0, 0, 'f', 2)
+                        << tr("Точок: %1").arg(m_active.size());
         m_summary.valid = true;
         m_summaryAnchor = mapgeo::centroid(m_active);
         return;
@@ -248,24 +248,24 @@ void GeometryLayer::refreshSummary()
     const bool poly = it->kind == GeometryKind::Polygon;
     const bool recon = it->role == GeometryRole::Recon;
     if (recon && poly)
-        m_summary.title = sameAsActive(*it) ? QStringLiteral("Активна область розвідки")
-                                            : QStringLiteral("Чернетка області розвідки");
+        m_summary.title = sameAsActive(*it) ? tr("Активна область розвідки")
+                                            : tr("Чернетка області розвідки");
     else if (recon)
-        m_summary.title = QStringLiteral("Маршрут розвідки (чернетка)");
+        m_summary.title = tr("Маршрут розвідки (чернетка)");
     else
-        m_summary.title = QString(poly ? "Полігон #%1" : "Лінія #%1").arg(m_store->ordinal(it->id));
+        m_summary.title = QString(poly ? tr("Полігон #%1") : tr("Лінія #%1")).arg(m_store->ordinal(it->id));
     if (recon)
         m_summary.lines << reconStatusLines(it);
 
     if (poly) {
-        m_summary.lines << QString("Площа: %1 км²").arg(mapgeo::areaKm2(it->points), 0, 'f', 2)
-                        << QString("Периметр: %1 км").arg(mapgeo::lengthM(it->points, true) / 1000.0, 0, 'f', 2);
+        m_summary.lines << tr("Площа: %1 км²").arg(mapgeo::areaKm2(it->points), 0, 'f', 2)
+                        << tr("Периметр: %1 км").arg(mapgeo::lengthM(it->points, true) / 1000.0, 0, 'f', 2);
     } else {
-        m_summary.lines << QString("Довжина: %1 км").arg(mapgeo::lengthM(it->points, false) / 1000.0, 0, 'f', 2);
+        m_summary.lines << tr("Довжина: %1 км").arg(mapgeo::lengthM(it->points, false) / 1000.0, 0, 'f', 2);
     }
-    m_summary.lines << QString("Точок: %1").arg(it->points.size());
+    m_summary.lines << tr("Точок: %1").arg(it->points.size());
     if (poly && it->points.size() > CoreConst::AreaMaxVertices)
-        m_summary.lines << QString("⚠ Для розвідки — не більше %1 точок (ПКМ → «Спростити»)")
+        m_summary.lines << tr("⚠ Для розвідки — не більше %1 точок (ПКМ → «Спростити»)")
                                .arg(CoreConst::AreaMaxVertices);
     m_summary.valid = true;
     m_summaryAnchor = anchorOf(*it);
@@ -317,10 +317,10 @@ bool GeometryLayer::mouseMove(QMouseEvent *e)
     }
 
     if (pt >= 0) {
-        tip.title = QString("Точка #%1").arg(pt + 1);
+        tip.title = tr("Точка #%1").arg(pt + 1);
         if (m_coordType == CoordType::WGS84_String)
-            tip.lines << QString("Широта: %1").arg(it->points[pt].latt, 0, 'f', 6)
-                      << QString("Довгота: %1").arg(it->points[pt].longt, 0, 'f', 6);
+            tip.lines << tr("Широта: %1").arg(it->points[pt].latt, 0, 'f', 6)
+                      << tr("Довгота: %1").arg(it->points[pt].longt, 0, 'f', 6);
         else
             tip.lines << formatMapPoint(it->points[pt], m_coordType);
         tip.valid = true;
@@ -336,8 +336,8 @@ bool GeometryLayer::mouseMove(QMouseEvent *e)
         }
         if (seg >= 0) {
             const int next = (seg + 1) % n;
-            tip.title = QString("Відрізок %1 → %2").arg(seg + 1).arg(next + 1);
-            tip.lines << QString("Відстань: %1 м").arg(mapgeo::distanceM(it->points[seg], it->points[next]), 0, 'f', 2);
+            tip.title = tr("Відрізок %1 → %2").arg(seg + 1).arg(next + 1);
+            tip.lines << tr("Відстань: %1 м").arg(mapgeo::distanceM(it->points[seg], it->points[next]), 0, 'f', 2);
             tip.valid = true;
         }
     }
@@ -406,7 +406,7 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
             emit updateRequested();
             const QVector<smappoint> pts = m_active;
             const CoordType type = m_coordType;
-            menu.addAction("Скопіювати координати активної області", this, [pts, type] {
+            menu.addAction(tr("Скопіювати координати активної області"), this, [pts, type] {
                 QString text;
                 for (const smappoint &pt : pts)
                     text += QString("WGS84:%1,%2/").arg(pt.latt, 0, 'f', 6).arg(pt.longt, 0, 'f', 6);
@@ -429,7 +429,7 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
 
     const bool poly = it->kind == GeometryKind::Polygon;
 
-    menu.addAction("Скопіювати координати", this, [this, id] { copyCoordinates(id); });
+    menu.addAction(tr("Скопіювати координати"), this, [this, id] { copyCoordinates(id); });
 
     // Логер принимает область из 3–20 вершин (ID04). Рисовать больше не запрещаем,
     // но назначить такую область разведкой можно только через упрощение - без перерисовки.
@@ -441,28 +441,28 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
     if (it->role == GeometryRole::Recon) {
         // «Зняти призначення» нет: черновик заменяется другой фигурой («Підготувати для розвідки»)
         // или координатами на странице; активная снимается только «Дії → Закінчити розвідку» (ID08)
-        menu.addAction("Відкрити сторінку «Розвідка»", this, [this] { emit reconPrepareRequested(); });
+        menu.addAction(tr("Відкрити сторінку «Розвідка»"), this, [this] { emit reconPrepareRequested(); });
     } else if (tooMany) {
-        menu.addAction(QString("Спростити до %1 точок і підготувати для розвідки").arg(maxV),
+        menu.addAction(tr("Спростити до %1 точок і підготувати для розвідки").arg(maxV),
                        this, [this, id] {
                            simplify(id);
                            m_store->assignRecon(id);
                            emit reconPrepareRequested();
                        });
     } else {
-        menu.addAction(poly ? "Підготувати для розвідки" : "Підготувати маршрут для розвідки",
+        menu.addAction(poly ? tr("Підготувати для розвідки") : tr("Підготувати маршрут для розвідки"),
                        this, [this, id] {
                            m_store->assignRecon(id);
                            emit reconPrepareRequested();
                        });
     }
     if (tooMany)
-        menu.addAction(QString("Спростити до %1 точок").arg(maxV), this, [this, id] { simplify(id); });
+        menu.addAction(tr("Спростити до %1 точок").arg(maxV), this, [this, id] { simplify(id); });
 
     // Полигон → фильтр «В заданій області» страницы «База даних» (без окна ввода координат)
     if (poly) {
         menu.addSeparator();
-        menu.addAction("Встановити область пошуку", this, [this, id] {
+        menu.addAction(tr("Встановити область пошуку"), this, [this, id] {
             if (const GeometryItem *g = m_store->find(id))
                 emit searchAreaRequested(g->points);
         });
@@ -471,7 +471,7 @@ void GeometryLayer::buildContextMenu(const QPoint &pos, QMenu &menu)
     // Область разведки из меню не удаляется — сначала «Зняти призначення»
     if (it->role != GeometryRole::Recon) {
         menu.addSeparator();
-        menu.addAction(poly ? "Видалити полігон" : "Видалити лінію",
+        menu.addAction(poly ? tr("Видалити полігон") : tr("Видалити лінію"),
                        this, [this, id] { m_store->remove(id); });
     }
 }
@@ -494,9 +494,9 @@ void GeometryLayer::simplify(int id)
     const double areaAfter = mapgeo::areaKm2(pts);
     const double diff = areaBefore > 0 ? std::fabs(areaAfter - areaBefore) / areaBefore * 100.0 : 0.0;
     NotificationManager::showSuccess(
-        QString("Точок: %1 → %2, площа змінилась на %3%")
+        tr("Точок: %1 → %2, площа змінилась на %3%")
             .arg(before).arg(pts.size()).arg(diff, 0, 'f', diff < 1 ? 2 : 1),
-        "Полігон спрощено");
+        tr("Полігон спрощено"));
 }
 
 void GeometryLayer::copyCoordinates(int id) const
@@ -519,7 +519,7 @@ void GeometryLayer::copyCoordinates(int id) const
     }
 
     QApplication::clipboard()->setText(text, QClipboard::Clipboard);
-    NotificationManager::showInfo("Координати збережено в буфер");
+    NotificationManager::showInfo(tr("Координати збережено в буфер"));
 }
 
 // ------------------------ DRAW ------------------------ //
@@ -629,17 +629,17 @@ QStringList GeometryLayer::reconStatusLines(const GeometryItem *it) const
     // Активная: логер принял именно эти вершины
     if (!it || sameAsActive(*it)) {
         const QString time = m_activeAt.isValid() ? m_activeAt.toLocalTime().toString("HH:mm") : QString();
-        QStringList l{ time.isEmpty() ? QStringLiteral("Прийнята логером")
-                                      : QStringLiteral("Прийнята логером о %1").arg(time) };
+        QStringList l{ time.isEmpty() ? tr("Прийнята логером")
+                                      : tr("Прийнята логером о %1").arg(time) };
         return l + m_activeParams;
     }
-    QStringList l{ QStringLiteral("Ще не відправлено на дрон") };
+    QStringList l{ tr("Ще не відправлено на дрон") };
     if (m_reconCheck == 1)
-        l << QStringLiteral("✓ Перевірку пройдено");
+        l << tr("✓ Перевірку пройдено");
     else if (m_reconCheck == 0 && !m_reconError.isEmpty())
         l << QStringLiteral("✕ ") + m_reconError;
     else
-        l << QStringLiteral("Перевірка…");
+        l << tr("Перевірка…");
     return l;
 }
 
@@ -1068,7 +1068,7 @@ void MapWidget::setupCoordTypeBox()
     box->addItem("MGRS",  QVariant::fromValue(CoordType::MGRS));
     box->addItem("UTM",   QVariant::fromValue(CoordType::UTM));
     box->addItem("DMS",   QVariant::fromValue(CoordType::DMS));
-    box->addItem("СК-42", QVariant::fromValue(CoordType::CK42));
+    box->addItem(tr("СК-42"), QVariant::fromValue(CoordType::CK42));
 
     // Последний выбранный формат
     const int saved = Settings::instance().getValue(KEY_COORD_TYPE).toInt();
@@ -1096,7 +1096,7 @@ void MapWidget::setCoordType(CoordType type)
 void MapWidget::copyCenterCoordinates()
 {
     QApplication::clipboard()->setText(ui->currentCoordLineEdit->text());
-    NotificationManager::showInfo("Координати скопійовано");
+    NotificationManager::showInfo(tr("Координати скопійовано"));
 }
 
 void MapWidget::centerOnPoint(const smarker &marker)
@@ -1195,7 +1195,7 @@ void MapWidget::setupLayers()
     bl->setSpacing(10);
     sessionBannerText = new QLabel(sessionBanner);
     sessionBannerText->setWordWrap(true);
-    auto *back = new QPushButton("Повернутися до поточного", sessionBanner);
+    auto *back = new QPushButton(tr("Повернутися до поточного"), sessionBanner);
     back->setObjectName("sessionBannerButton");
     back->setCursor(Qt::PointingHandCursor);
     bl->addWidget(sessionBannerText, 1);
@@ -1729,28 +1729,28 @@ void MapWidget::setupFilterMenu()
     filterMenu = new QMenu(this);
     btnFilter->setMenu(filterMenu);
 
-    addFilter("Активні загрози",   true, [this](bool on) { threatLayer->setVisible(on); });
-    addFilter("Архівні дані",      true, [this](bool on) {
+    addFilter(tr("Активні загрози"),   true, [this](bool on) { threatLayer->setVisible(on); });
+    addFilter(tr("Архівні дані"),      true, [this](bool on) {
         archiveLayer->setVisible(on);
         archivePointsLayer->setVisible(on);              // точки поиска по базе
     });
-    addFilter("Маркер дрона",      true, [this](bool on) { vehicleLayer->setVehicleVisible(on); });
-    addFilter("Шлях дрона",        true, [this](bool on) { vehicleLayer->setPathVisible(on); });
-    addFilter("Область пошуку",    true, [this](bool on) { searchLayer->setVisible(on); });
+    addFilter(tr("Маркер дрона"),      true, [this](bool on) { vehicleLayer->setVehicleVisible(on); });
+    addFilter(tr("Шлях дрона"),        true, [this](bool on) { vehicleLayer->setPathVisible(on); });
+    addFilter(tr("Область пошуку"),    true, [this](bool on) { searchLayer->setVisible(on); });
 
     filterMenu->addSeparator();
-    addFilter("Точки вимірювань",     true, [this](bool on) { measurementLayer->setVisible(on); });
-    addFilter("Значення біля точок",  true, [this](bool on) { measurementLayer->setLabelsVisible(on); });
-    addFilter("Теплова карта",        true, [this](bool on) { doseGridLayer->setVisible(on); });
-    addFilter("Спектри",              true, [this](bool on) { spectrumLayer->setVisible(on); });
+    addFilter(tr("Точки вимірювань"),     true, [this](bool on) { measurementLayer->setVisible(on); });
+    addFilter(tr("Значення біля точок"),  true, [this](bool on) { measurementLayer->setLabelsVisible(on); });
+    addFilter(tr("Теплова карта"),        true, [this](bool on) { doseGridLayer->setVisible(on); });
+    addFilter(tr("Спектри"),              true, [this](bool on) { spectrumLayer->setVisible(on); });
 
 #ifndef QT_NO_DEBUG
     // Только в отладочной сборке: проверка слоёв дозы без ядра
     filterMenu->addSeparator();
-    QMenu *test = filterMenu->addMenu("Тест: дані дози");
-    test->addAction("Політ одразу",           this, [this] { loadTestDoseData(false); });
-    test->addAction("Політ наживо (таймер)",  this, [this] { loadTestDoseData(true); });
-    test->addAction("Очистити",               this, [this] { clearDoseData(); });
+    QMenu *test = filterMenu->addMenu(tr("Тест: дані дози"));
+    test->addAction(tr("Політ одразу"),           this, [this] { loadTestDoseData(false); });
+    test->addAction(tr("Політ наживо (таймер)"),  this, [this] { loadTestDoseData(true); });
+    test->addAction(tr("Очистити"),               this, [this] { clearDoseData(); });
 #endif
 }
 
@@ -1797,9 +1797,9 @@ void MapWidget::onReconChanged(int id)
     if (const GeometryItem *it = store->find(id)) {
         if (it->kind == GeometryKind::Polygon && it->points.size() > CoreConst::AreaMaxVertices)
             NotificationManager::showWarning(
-                QString("В області %1 точок, логер приймає до %2. ПКМ по області → «Спростити до %2 точок».")
+                tr("В області %1 точок, логер приймає до %2. ПКМ по області → «Спростити до %2 точок».")
                     .arg(it->points.size()).arg(CoreConst::AreaMaxVertices),
-                "Забагато точок");
+                tr("Забагато точок"));
         emit reconAssigned(it->points, it->kind == GeometryKind::Line);
     }
     else
@@ -1928,15 +1928,15 @@ void MapWidget::setActiveReconArea(const CommandRequest &id04, const QDateTime &
     // Параметры, с которыми логер ведёт разведку, — для плашки активной области
     QStringList params;
     switch (id04.reconMode) {
-    case ReconMode::Operator: params << QStringLiteral("Режим: за командою оператора"); break;
-    case ReconMode::Time:     params << QStringLiteral("Режим: за часом (кожні %1 с)").arg(id04.intervalS); break;
-    case ReconMode::Distance: params << QStringLiteral("Режим: за відстанню (кожні %1 м)").arg(id04.distanceM); break;
+    case ReconMode::Operator: params << tr("Режим: за командою оператора"); break;
+    case ReconMode::Time:     params << tr("Режим: за часом (кожні %1 с)").arg(id04.intervalS); break;
+    case ReconMode::Distance: params << tr("Режим: за відстанню (кожні %1 м)").arg(id04.distanceM); break;
     default: break;
     }
-    params << QStringLiteral("Інтервал: %1 с · відстань: %2 м").arg(id04.intervalS).arg(id04.distanceM)
-           << (id04.spectrumS > 0 ? QStringLiteral("Набір спектра: %1 с").arg(id04.spectrumS)
-                                  : QStringLiteral("Набір спектра: до команди ID12"))
-           << QStringLiteral("Дублювання пакетів: ×%1").arg(id04.dupFactor);
+    params << tr("Інтервал: %1 с · відстань: %2 м").arg(id04.intervalS).arg(id04.distanceM)
+           << (id04.spectrumS > 0 ? tr("Набір спектра: %1 с").arg(id04.spectrumS)
+                                  : tr("Набір спектра: до команди ID12"))
+           << tr("Дублювання пакетів: ×%1").arg(id04.dupFactor);
     geometryLayer->setActiveRecon(pts, acceptedAt, params);
 }
 
@@ -2058,7 +2058,7 @@ void MapWidget::showSessionView(const SessionData &d)
     // Плашка: имя и время полёта
     const QString from = d.info.startTime.toLocalTime().toString("dd.MM.yyyy HH:mm");
     const QString to = d.info.endTime.isValid() ? d.info.endTime.toLocalTime().toString("HH:mm") : QStringLiteral("…");
-    sessionBannerText->setText(QStringLiteral("Перегляд польоту <b>%1</b><br>%2–%3 · вимірювань: %4")
+    sessionBannerText->setText(tr("Перегляд польоту <b>%1</b><br>%2–%3 · вимірювань: %4")
                                    .arg(d.info.name.toHtmlEscaped(), from, to)
                                    .arg(d.measurements.size()));
     sessionBanner->show();
@@ -2151,7 +2151,7 @@ void MapWidget::loadTestDoseData(bool live)
         connect(testFlight, &DoseTestFlight::measurement, this, &MapWidget::onMeasurement);
         connect(testFlight, &DoseTestFlight::gridUpdated, this, &MapWidget::onGridUpdated);
         connect(testFlight, &DoseTestFlight::finished, this, [] {
-            NotificationManager::showInfo("Тестовий політ завершено");
+            NotificationManager::showInfo(tr("Тестовий політ завершено"));
         });
     }
     clearDoseData();
@@ -2169,5 +2169,5 @@ void MapWidget::loadTestDoseData(bool live)
         setMeasurements(testFlight->measurements());
         onGridUpdated(testFlight->buildGrid());
     }
-    NotificationManager::showInfo(QString("Тестовий політ: %1 точок").arg(testFlight->measurements().size()));
+    NotificationManager::showInfo(tr("Тестовий політ: %1 точок").arg(testFlight->measurements().size()));
 }

@@ -1,4 +1,5 @@
 #include "spectrumlayer.h"
+#include <QCoreApplication>
 
 #include <QMouseEvent>
 #include <QPainter>
@@ -25,14 +26,14 @@ QString stopText(SpectrumStopReason r)
 {
     switch (r) {
     case SpectrumStopReason::None:          return QString();
-    case SpectrumStopReason::Measurement:   return QStringLiteral("логер повернувся до вимірів");
-    case SpectrumStopReason::CommandStop:   return QStringLiteral("зупинено оператором");
-    case SpectrumStopReason::CommandFinish: return QStringLiteral("закінчено розвідку");
-    case SpectrumStopReason::NewArea:       return QStringLiteral("нова область");
-    case SpectrumStopReason::NewSpectrum:   return QStringLiteral("почався новий спектр");
-    case SpectrumStopReason::LoggerError:   return QStringLiteral("аварія");
-    case SpectrumStopReason::TimeElapsed:   return QStringLiteral("минув заданий час");
-    case SpectrumStopReason::ChannelFull:   return QStringLiteral("канал заповнено");
+    case SpectrumStopReason::Measurement:   return QCoreApplication::translate("SpectrumLayer", "логер повернувся до вимірів");
+    case SpectrumStopReason::CommandStop:   return QCoreApplication::translate("SpectrumLayer", "зупинено оператором");
+    case SpectrumStopReason::CommandFinish: return QCoreApplication::translate("SpectrumLayer", "закінчено розвідку");
+    case SpectrumStopReason::NewArea:       return QCoreApplication::translate("SpectrumLayer", "нова область");
+    case SpectrumStopReason::NewSpectrum:   return QCoreApplication::translate("SpectrumLayer", "почався новий спектр");
+    case SpectrumStopReason::LoggerError:   return QCoreApplication::translate("SpectrumLayer", "аварія");
+    case SpectrumStopReason::TimeElapsed:   return QCoreApplication::translate("SpectrumLayer", "минув заданий час");
+    case SpectrumStopReason::ChannelFull:   return QCoreApplication::translate("SpectrumLayer", "канал заповнено");
     }
     return QString();
 }
@@ -188,22 +189,22 @@ void SpectrumLayer::drawCard(QPainter &p, const QPointF &c, const SpectrumInfo &
 {
     QStringList lines;
     if (s.startTime.isValid())
-        lines << QStringLiteral("Початок: %1").arg(s.startTime.toLocalTime().toString("HH:mm:ss"));
-    lines << (s.setDurationS > 0 ? QStringLiteral("Задано: %1").arg(mmss(s.setDurationS))
-                                 : QStringLiteral("Задано: до команди «Зупинити»"));
-    lines << QStringLiteral("Порцій: %1").arg(s.portions);
+        lines << tr("Початок: %1").arg(s.startTime.toLocalTime().toString("HH:mm:ss"));
+    lines << (s.setDurationS > 0 ? tr("Задано: %1").arg(mmss(s.setDurationS))
+                                 : tr("Задано: до команди «Зупинити»"));
+    lines << tr("Порцій: %1").arg(s.portions);
     if (s.portions > 0)
-        lines << QStringLiteral("ПАЕД: %1 мкЗв/год").arg(dosemap::formatDose(s.lastPaed));
+        lines << tr("ПАЕД: %1 мкЗв/год").arg(dosemap::formatDose(s.lastPaed));
     if (s.lidarCm > 0)
-        lines << QStringLiteral("Висота: %1 м").arg(s.lidarCm / 100.0, 0, 'f', 1);
+        lines << tr("Висота: %1 м").arg(s.lidarCm / 100.0, 0, 'f', 1);
     if (s.source == DataSource::Sd)
-        lines << QStringLiteral("Джерело: SD-карта");
-    lines << (s.finished ? QStringLiteral("Клік — відкрити спектр") : QStringLiteral("Клік — дивитися набір"));
+        lines << tr("Джерело: SD-карта");
+    lines << (s.finished ? tr("Клік — відкрити спектр") : tr("Клік — дивитися набір"));
 
-    const QString state = s.finished ? stopText(s.stopReason) : QStringLiteral("йде набір");
-    const QString title = QStringLiteral("Спектр №%1").arg(s.number);
+    const QString state = s.finished ? stopText(s.stopReason) : tr("йде набір");
+    const QString title = tr("Спектр №%1").arg(s.number);
     dosemap::drawCard(p, iconCenter(c) + QPointF(0, -kHalf), title, StatusColor::spectrum().darker(130), StatusColor::spectrum(),
-                      lines, state.isEmpty() ? QString() : QStringLiteral("Стан: %1").arg(state), bounds);
+                      lines, state.isEmpty() ? QString() : tr("Стан: %1").arg(state), bounds);
 }
 
 /////////////////////////////////// Мышь ///////////////////////////////////
